@@ -1,4 +1,4 @@
-name: ia_nano
+name: sys_agents
 channels:
   - conda-forge
   - defaults

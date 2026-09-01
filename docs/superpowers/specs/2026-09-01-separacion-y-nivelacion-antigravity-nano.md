@@ -75,7 +75,7 @@ Mismo set que LP/Probabilidad, en `src/multiagent_core/`:
 
 ## Entorno de ejecución
 
-Ambos repos usan el entorno conda `ia_nano` (Python 3.11, según `environment.yml` ya declarado en Antigravity-Nano — a crear, no existe todavía en esta máquina). Dependencias pesadas ya anticipadas en `pyproject.toml` del repo actual: `torch`, `ase`, `chromadb`, `sentence-transformers`, `langchain`, `crewai`, `google-adk` — confirmar cuáles aplican a cada repo nuevo.
+**Revisado tras el Sub-proyecto 1**: cada repo usa su propio entorno conda, no uno compartido. `AI-Agentic-Systems-Core` usa `sys_agents` (Python 3.11, creado en el Sub-proyecto 1); Antigravity-Nano conserva su `ia_nano` propio (`environment.yml` ya declarado ahí). Decisión explícita: aunque ambos parten de una base similar, cada repo acumulará dependencias distintas conforme avancen sus sub-proyectos de contenido — genéricas de IA/ML/Sistemas Multi-Agente en uno (`langchain`, `crewai`, `google-adk`, `chromadb`, `sentence-transformers`), específicas de nanotecnología en el otro (`ase`, `rdkit`, `openmm`, `mp_api`) — y compartir un solo entorno los habría acoplado innecesariamente además de mezclar ambos conjuntos de deps pesadas en una sola instalación. `torch` y `chromadb`/`sentence-transformers` se agregan a `sys_agents` cuando el Sub-proyecto 2/3 los necesite de verdad, no de antemano.
 
 ## Estándar de calidad (idéntico al ya aplicado en LP/Probabilidad)
 
@@ -90,7 +90,7 @@ Ambos repos usan el entorno conda `ia_nano` (Python 3.11, según `environment.ym
 
 ## Secuencia de sub-proyectos (cada uno con su propio spec/plan de implementación cuando le toque)
 
-1. **Crear el repo `AI-Agentic-Systems-Core`** — estructura base, licencia, README inicial, CI, entorno `ia_nano`.
+1. **Crear el repo `AI-Agentic-Systems-Core`** — estructura base, licencia, README inicial, CI, entorno `sys_agents` propio (completado — ver nota en "Entorno de ejecución").
 2. **Infraestructura de agentes en `AI-Agentic-Systems-Core`** — los 8 agentes listados arriba, con TDD estricto, en `src/multiagent_core/`.
 3. **Contenido pedagógico de `AI-Agentic-Systems-Core`** — Unidad 0: Fundamentos Matemáticos (adaptada de la fuente EMALCA), ML fundamentals (de U3 generalizado), IA aplicada genérica (de U4 generalizado), Sistemas Multi-Agente completo (U5 tal cual, fusionada con Capítulos 9/10-bis de EMALCA sin duplicar), con Hilo de Oro/patrón propio, Diccionario de Variables, autoevaluación, GOVERNANCE.md honesto. La fuente EMALCA se indexa también en el RAG del `TutorAgent` de este repo.
 4. **Migrar/adaptar los agentes a Antigravity-Nano** — mismo patrón de replicación ya usado entre LP y Probabilidad (código adaptado, no un paquete compartido — decisión explícita de esta spec, para no introducir una dependencia de publicación de paquete entre repos).

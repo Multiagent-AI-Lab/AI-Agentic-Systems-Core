@@ -17,8 +17,11 @@ Ver `docs/superpowers/specs/` para el diseño completo de esta separación.
 
 ## 🚀 Configuración del Entorno de Trabajo
 
-El proyecto usa el entorno conda `ia_nano` — compartido con
-Antigravity-Nano-Research-Multiagentic-Core — con Python 3.11.
+El proyecto usa su propio entorno conda `sys_agents`, con Python 3.11 —
+independiente del `ia_nano` de Antigravity-Nano-Research-Multiagentic-Core.
+Cada repo evoluciona sus propias dependencias (este repo es genérico de
+IA/ML/Sistemas Multi-Agente; Antigravity-Nano es específico de
+nanotecnología), así que no comparten entorno pese a ser repos hermanos.
 
 ### 1. Crear / Actualizar el Entorno Conda
 
@@ -26,7 +29,7 @@ Antigravity-Nano-Research-Multiagentic-Core — con Python 3.11.
 conda env create -f environment.yml
 ```
 
-o, si el entorno ya existe (por ejemplo, ya creado para Antigravity-Nano):
+o, si el entorno ya existe:
 
 ```bash
 conda env update -f environment.yml
@@ -35,7 +38,7 @@ conda env update -f environment.yml
 ### 2. Activar el Entorno
 
 ```bash
-conda activate ia_nano
+conda activate sys_agents
 ```
 
 ### 3. Instalar el paquete en modo editable
