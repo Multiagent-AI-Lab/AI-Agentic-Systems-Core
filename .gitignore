@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Secretos (API keys para TutorAgent, etc.)
+.env
+.env.*
+
+# Artefactos internos del flujo de trabajo con Claude Code (planes, reportes
+# de auditoría, lockfiles) — se conservan localmente pero no se publican,
+# mismo patrón que LP y Probabilidad. Los specs SÍ se versionan.
+docs/superpowers/plans/
+docs/superpowers/*.lock
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# Worktrees locales para trabajo aislado (sandboxes de desarrollo)
+.worktrees/
