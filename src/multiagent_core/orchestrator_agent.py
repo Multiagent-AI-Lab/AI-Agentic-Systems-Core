@@ -89,11 +89,20 @@ class OrchestratorAgent:
                 "", "```mermaid", diagrama, "```", "",
             ])
 
-        evaluacion = self.evaluator.evaluate(student_code, test_file_path)
-        secciones.extend([
-            "## [CALIFICACIÓN] Evaluación contra Rúbrica Genérica",
-            "", evaluacion["retroalimentacion"],
-        ])
+        if tipo_entrada == "pseudocodigo":
+            secciones.extend([
+                (
+                    "## [CALIFICACIÓN] No aplica para pseudocódigo — la evaluación "
+                    "automática requiere código Python ejecutable."
+                ),
+                "",
+            ])
+        else:
+            evaluacion = self.evaluator.evaluate(student_code, test_file_path)
+            secciones.extend([
+                "## [CALIFICACIÓN] Evaluación contra Rúbrica Genérica",
+                "", evaluacion["retroalimentacion"],
+            ])
 
         reporte = "\n".join(secciones)
 

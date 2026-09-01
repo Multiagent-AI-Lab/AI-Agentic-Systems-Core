@@ -53,6 +53,15 @@ class TestAuditCodigo:
         resultado = auditor.audit_unit(md)
         assert resultado["hallazgos"]["codigo"] == []
 
+    def test_detecta_variable_camelcase(self, auditor, tmp_path):
+        md = tmp_path / "unidad.md"
+        md.write_text(
+            "```python\ndef f() -> None:\n    \"\"\"Docstring.\"\"\"\n    miVariable = 1\n```",
+            encoding="utf-8",
+        )
+        resultado = auditor.audit_unit(md)
+        assert any("CamelCase" in h for h in resultado["hallazgos"]["codigo"])
+
 
 class TestAuditReproducibilidad:
     def test_detecta_aleatoriedad_sin_seed(self, auditor, tmp_path):

@@ -8,14 +8,13 @@ bloques ```python``` a celdas de código. Usa MathAgent para normalizar
 LaTeX y FlowchartAgent para inyectar diagramas automáticos.
 """
 
+import re
 from pathlib import Path
 from typing import ClassVar
 
 import nbformat as nbf
 
-from ._fence_utils import extract_fenced_blocks
 from .flowchart_agent import FlowchartAgent
-from .mermaid_renderer import MermaidRenderer
 
 SKILL_METADATA = {
     "name": "notebook_compiler_agent",
@@ -54,54 +53,86 @@ class MathAgent:
 class NotebookCompilerAgent:
     """Agente que traduce un Markdown completo a un archivo .ipynb."""
 
-    def __init__(
-        self,
-        mermaid_renderer: MermaidRenderer | None = None,
-    ) -> None:
+    def __init__(self) -> None:
         self.math_agent = MathAgent()
         self.flowchart_agent = FlowchartAgent()
-        self.mermaid_renderer = mermaid_renderer or MermaidRenderer(
-            output_dir=Path.cwd() / "notebooks" / "assets" / "diagramas"
-        )
 
     def compile(self, md_filepath: Path, output_dir: Path) -> Path:
-        """Compila un archivo Markdown a un notebook .ipynb."""
+        """Compila un archivo Markdown a un notebook .ipynb, preservando el
+        orden real de aparición de texto y bloques de código del documento
+        fuente."""
         output_dir.mkdir(parents=True, exist_ok=True)
         nb_path = output_dir / (md_filepath.stem + ".ipynb")
 
         content = md_filepath.read_text(encoding="utf-8")
         nb = nbf.v4.new_notebook()
 
-        bloques = extract_fenced_blocks(content)
-        texto_sin_fences = self._quitar_bloques_de_codigo(content, bloques)
-        secciones_texto = [s for s in texto_sin_fences.split("\n\n") if s.strip()]
-
-        for seccion in secciones_texto:
-            texto_procesado = self.math_agent.process_latex(seccion)
-            nb.cells.append(nbf.v4.new_markdown_cell(texto_procesado))
-
-        for fence, lang, code in bloques:
-            if lang == "python":
-                nb.cells.append(nbf.v4.new_code_cell(code))
-                if code.count("\n") + 1 > _MIN_LINEAS_PARA_DIAGRAMA and "def " in code:
-                    diagrama = self.flowchart_agent.build_mermaid_flowchart(code)
-                    if not diagrama.startswith("%%"):
-                        nb.cells.append(
-                            nbf.v4.new_markdown_cell(f"```mermaid\n{diagrama}\n```")
-                        )
-            elif lang in ("mermaid", "markdown", "text", ""):
-                nb.cells.append(
-                    nbf.v4.new_markdown_cell(f"```{lang}\n{code}\n```")
-                )
+        for segmento in self._segment_document(content):
+            if segmento[0] == "text":
+                self._append_text_cells(nb, segmento[1])
+            else:
+                _, _fence, lang, code = segmento
+                self._append_code_segment(nb, lang, code)
 
         nbf.write(nb, nb_path)
         return nb_path
 
-    def _quitar_bloques_de_codigo(self, content: str, bloques: list[tuple]) -> str:
-        """Elimina el texto de los bloques con fences del contenido, dejando
-        solo el texto Markdown circundante para convertir en celdas de texto."""
-        resultado = content
-        for fence, lang, code in bloques:
-            bloque_completo = f"{fence}{lang}\n{code}\n{fence}"
-            resultado = resultado.replace(bloque_completo, "")
-        return resultado
+    def _append_text_cells(self, nb: nbf.NotebookNode, texto: str) -> None:
+        """Agrega una celda Markdown por cada párrafo no vacío del texto dado."""
+        for seccion in texto.split("\n\n"):
+            if not seccion.strip():
+                continue
+            texto_procesado = self.math_agent.process_latex(seccion)
+            nb.cells.append(nbf.v4.new_markdown_cell(texto_procesado))
+
+    def _append_code_segment(self, nb: nbf.NotebookNode, lang: str, code: str) -> None:
+        """Agrega la(s) celda(s) correspondientes a un bloque con fence,
+        según su lenguaje."""
+        if lang == "python":
+            nb.cells.append(nbf.v4.new_code_cell(code))
+            if code.count("\n") + 1 > _MIN_LINEAS_PARA_DIAGRAMA and "def " in code:
+                diagrama = self.flowchart_agent.build_mermaid_flowchart(code)
+                if not diagrama.startswith("%%"):
+                    nb.cells.append(
+                        nbf.v4.new_markdown_cell(f"```mermaid\n{diagrama}\n```")
+                    )
+        elif lang in ("mermaid", "markdown", "text", ""):
+            nb.cells.append(nbf.v4.new_markdown_cell(f"```{lang}\n{code}\n```"))
+
+    def _segment_document(self, content: str) -> list[tuple]:
+        """Divide el documento en segmentos ordenados según aparecen en el
+        texto fuente: `("text", texto)` para tramos de Markdown y
+        `("code", fence, lang, code)` para bloques delimitados por fences.
+
+        A diferencia de `extract_fenced_blocks` (que descarta el texto
+        circundante), este método conserva el texto intercalado entre
+        bloques para poder reconstruir el orden real del documento.
+        """
+        lines = content.split("\n")
+        segmentos: list[tuple] = []
+        texto_actual: list[str] = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            fence_match = re.match(r"^(`{3,})(.*)$", line)
+            if fence_match:
+                if texto_actual:
+                    segmentos.append(("text", "\n".join(texto_actual)))
+                    texto_actual = []
+
+                fence = fence_match.group(1)
+                lang = fence_match.group(2).strip()
+                code_lines: list[str] = []
+                i += 1
+                while i < len(lines) and lines[i].strip() != fence:
+                    code_lines.append(lines[i])
+                    i += 1
+                segmentos.append(("code", fence, lang, "\n".join(code_lines)))
+            else:
+                texto_actual.append(line)
+            i += 1
+
+        if texto_actual:
+            segmentos.append(("text", "\n".join(texto_actual)))
+
+        return segmentos

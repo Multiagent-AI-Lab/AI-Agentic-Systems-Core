@@ -48,6 +48,17 @@ class TestGeneratePedagogicalReport:
         )
         assert "[ESTILO]" not in reporte
 
+    def test_reporte_de_pseudocodigo_omite_calificacion_automatica(
+        self, orchestrator: OrchestratorAgent, mocker
+    ):
+        evaluate_spy = mocker.spy(orchestrator.evaluator, "evaluate")
+        reporte = orchestrator.generate_pedagogical_report(
+            "SI x > 0 ENTONCES\n    y <- 1\nFIN_SI", unit_number=1
+        )
+        evaluate_spy.assert_not_called()
+        assert "No aplica para pseudocódigo" in reporte
+        assert "Evaluación contra Rúbrica Genérica" not in reporte
+
     def test_reporte_incluye_calificacion(self, orchestrator: OrchestratorAgent):
         reporte = orchestrator.generate_pedagogical_report("x = 1", unit_number=1)
         assert "CALIFICACIÓN" in reporte or "Calificación" in reporte

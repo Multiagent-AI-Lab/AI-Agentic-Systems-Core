@@ -90,7 +90,7 @@ class ContentAuditorAgent:
                 continue
 
             hallazgos.extend(
-                h for h in self.code_auditor.audit_style(code) if "PEP 8" not in h
+                h for h in self.code_auditor.audit_style(code) if "79 caracteres" not in h
             )
             hallazgos.extend(self.code_auditor.audit_security(code))
 

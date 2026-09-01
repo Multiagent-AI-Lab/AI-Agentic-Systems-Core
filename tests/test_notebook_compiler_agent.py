@@ -1,7 +1,6 @@
 """Tests de caracterización para NotebookCompilerAgent."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import nbformat
 import pytest
@@ -10,15 +9,8 @@ from src.multiagent_core.notebook_compiler_agent import MathAgent, NotebookCompi
 
 
 @pytest.fixture
-def mock_renderer():
-    renderer = MagicMock()
-    renderer.render.return_value = Path("/tmp/fake.svg")
-    return renderer
-
-
-@pytest.fixture
-def compiler(mock_renderer) -> NotebookCompilerAgent:
-    return NotebookCompilerAgent(mermaid_renderer=mock_renderer)
+def compiler() -> NotebookCompilerAgent:
+    return NotebookCompilerAgent()
 
 
 class TestMathAgent:
@@ -64,3 +56,30 @@ class TestCompile:
         compiler.compile(md_file, output_dir)
 
         assert output_dir.exists()
+
+    def test_preserva_orden_texto_codigo_texto_codigo(
+        self, compiler: NotebookCompilerAgent, tmp_path: Path
+    ):
+        md_file = tmp_path / "UNIDAD_TEST.md"
+        md_file.write_text(
+            "Primer parrafo de texto.\n\n"
+            "```python\n"
+            "x = 1\n"
+            "```\n\n"
+            "Segundo parrafo de texto.\n\n"
+            "```python\n"
+            "y = 2\n"
+            "```\n",
+            encoding="utf-8",
+        )
+        output_dir = tmp_path / "notebooks"
+
+        resultado = compiler.compile(md_file, output_dir)
+        nb = nbformat.read(resultado, as_version=4)
+
+        tipos = [c.cell_type for c in nb.cells]
+        assert tipos == ["markdown", "code", "markdown", "code"]
+        assert "Primer parrafo" in nb.cells[0].source
+        assert "x = 1" in nb.cells[1].source
+        assert "Segundo parrafo" in nb.cells[2].source
+        assert "y = 2" in nb.cells[3].source
