@@ -14,3 +14,9 @@ dependencies:
     - ruff>=0.6.0
     - black>=24.0.0
     - isort>=5.13.0
+    - chromadb>=0.6.0
+    - sentence-transformers>=3.4.0
+    - google-genai>=1.0.0
+    - nbformat>=5.10.0
+    - pypdf>=5.0.0
+    - pytest-mock>=3.14.0
