@@ -45,6 +45,16 @@ _ARGUMENTOS_SIN_TIPO_ESPERADO = {"self", "cls"}
 _ALEATORIEDAD_PATTERN = re.compile(r"\brandom\.\w+\(|\bnp\.random\.\w+\(")
 _SEED_PATTERN = re.compile(r"\bseed\(")
 
+FASES_CICLO_DEL_AGENTE = (
+    "Selección de Arquitectura",
+    "Diseño",
+    "Implementación",
+    "Evaluación",
+    "Despliegue",
+    "Iteración",
+)
+_ARCHIVO_EXENTO_DEL_CICLO = re.compile(r"^UNIDAD_4_")
+
 
 class ContentAuditorAgent:
     """Agente que audita el contenido pedagógico de las unidades del curso."""
@@ -145,24 +155,29 @@ class ContentAuditorAgent:
 
         return hallazgos
 
-    def _audit_pedagogico(self, bloques: list[tuple], content: str) -> list[str]:
-        """Verifica que el patrón pedagógico central esté completo, y valida
-        la sintaxis de cualquier diagrama Mermaid presente.
+    def _audit_pedagogico(self, bloques: list[tuple], content: str, md_path: Path) -> list[str]:
+        """Verifica que "El Ciclo del Agente" esté completo (las 6 fases
+        citadas como encabezados), y valida la sintaxis de cualquier diagrama
+        Mermaid presente.
 
-        El nombre final del patrón pedagógico central de este repo se
-        decide en el Sub-proyecto 3 (contenido) — hasta entonces, los
-        mensajes de hallazgo usan el marcador <PATRÓN_PEDAGÓGICO>.
+        UNIDAD_4 (Sistemas Agénticos Adaptativos, "Línea de Investigación")
+        está exenta de esta verificación por decisión de diseño explícita —
+        no se fuerzan las 6 fases sobre contenido de frontera que no encaja
+        naturalmente en el ciclo de producción estándar.
         """
         hallazgos: list[str] = []
 
-        idiomas_presentes = {lang for _, lang, _ in bloques}
-        patron_esperado = {"pseudocodigo", "mermaid", "python", "pytest"}
-        if not patron_esperado.issubset(idiomas_presentes):
-            faltantes = patron_esperado - idiomas_presentes
-            hallazgos.append(
-                "Ciclo del <PATRÓN_PEDAGÓGICO> incompleto (Pseudocódigo → "
-                f"Mermaid → Python → pytest): faltan bloques de tipo {sorted(faltantes)}."
-            )
+        if not _ARCHIVO_EXENTO_DEL_CICLO.match(md_path.name):
+            fases_faltantes = [
+                fase for fase in FASES_CICLO_DEL_AGENTE
+                if f"### {fase}" not in content
+            ]
+            if fases_faltantes:
+                hallazgos.append(
+                    "Ciclo del Agente incompleto: faltan las fases "
+                    f"{fases_faltantes} como encabezados '### <fase>' en la "
+                    "sección '## 🔄 El Ciclo del Agente'."
+                )
 
         mermaid_blocks = [code for _, lang, code in bloques if lang == "mermaid"]
         for diagrama in mermaid_blocks:
@@ -247,7 +262,7 @@ class ContentAuditorAgent:
 
         hallazgos = {
             "latex": self._audit_latex(content),
-            "patron_pedagogico": self._audit_pedagogico(bloques, content),
+            "patron_pedagogico": self._audit_pedagogico(bloques, content, md_path),
             "codigo": self._audit_codigo(python_blocks),
             "reproducibilidad": self._audit_reproducibilidad(python_blocks),
             "diccionario_variables": self._audit_diccionario_variables(content),
@@ -260,3 +275,41 @@ class ContentAuditorAgent:
             "hallazgos": hallazgos,
             "total_hallazgos": total,
         }
+
+    def audit_all_units(self, course_dir: Path) -> str:
+        """Audita todas las unidades del curso y genera un reporte Markdown consolidado.
+
+        Args:
+            course_dir: Directorio raíz del curso, donde viven los UNIDAD_*.md.
+
+        Returns:
+            Reporte consolidado en Markdown, con una sección por unidad
+            auditada, ordenadas alfabéticamente por nombre de archivo.
+        """
+        md_files = sorted(Path(course_dir).glob("UNIDAD_*.md"))
+
+        secciones = ["# Reporte de Auditoría de Contenido", ""]
+        total_general = 0
+
+        for md_path in md_files:
+            resultado = self.audit_unit(md_path)
+            total_general += resultado["total_hallazgos"]
+
+            secciones.append(f"## {resultado['unidad']} ({resultado['total_hallazgos']} hallazgos)")
+            secciones.append("")
+
+            for dimension, hallazgos in resultado["hallazgos"].items():
+                if not hallazgos:
+                    continue
+                secciones.append(f"### {dimension.capitalize()}")
+                for h in hallazgos:
+                    secciones.append(f"- {h}")
+                secciones.append("")
+
+            if resultado["total_hallazgos"] == 0:
+                secciones.append("- ✅ Sin hallazgos.")
+                secciones.append("")
+
+        secciones.insert(2, f"**Total de hallazgos en {len(md_files)} unidades: {total_general}**\n")
+
+        return "\n".join(secciones)

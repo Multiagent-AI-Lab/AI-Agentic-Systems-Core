@@ -49,7 +49,9 @@ class EvaluatorAgent:
         }
 
     def _evaluar_proceso(self, student_code: str) -> dict[str, str]:
-        """Evalúa el criterio del patrón pedagógico central del curso.
+        """Evalúa el criterio de "El Ciclo del Agente" (Selección de
+        Arquitectura, Diseño, Implementación, Evaluación, Despliegue,
+        Iteración).
 
         No verificable automáticamente a partir del código fuente solo;
         siempre retorna "En desarrollo" con una nota para el estudiante.
@@ -57,9 +59,10 @@ class EvaluatorAgent:
         return {
             "nivel": "En desarrollo",
             "retroalimentacion": (
-                "No es posible verificar automáticamente el pseudocódigo ni el "
-                "diagrama previos; documenta el ciclo completo del patrón "
-                "pedagógico del curso en tu entrega."
+                "No es posible verificar automáticamente las 6 fases del "
+                "Ciclo del Agente (Selección de Arquitectura, Diseño, "
+                "Implementación, Evaluación, Despliegue, Iteración) a partir "
+                "del código fuente solo; documenta el ciclo completo en tu entrega."
             ),
         }
 

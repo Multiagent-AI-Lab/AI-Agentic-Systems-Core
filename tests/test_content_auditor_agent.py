@@ -93,11 +93,40 @@ class TestAuditReproducibilidad:
 
 
 class TestAuditPatronPedagogico:
-    def test_detecta_patron_incompleto(self, auditor, tmp_path):
-        md = tmp_path / "unidad.md"
-        md.write_text("```python\nx = 1\n```", encoding="utf-8")
+    def test_detecta_ciclo_del_agente_incompleto(self, auditor, tmp_path):
+        md = tmp_path / "UNIDAD_1_ML_FUNDAMENTALS.md"
+        md.write_text(
+            "# Unidad 1\n\n## 🔄 El Ciclo del Agente\n\n"
+            "### Selección de Arquitectura\n\nTexto.\n\n"
+            "### Diseño\n\nTexto.\n",
+            encoding="utf-8",
+        )
         resultado = auditor.audit_unit(md)
-        assert resultado["hallazgos"]["patron_pedagogico"]
+        assert any(
+            "Ciclo del Agente" in h and "incompleto" in h.lower()
+            for h in resultado["hallazgos"]["patron_pedagogico"]
+        )
+
+    def test_sin_hallazgo_si_las_6_fases_estan_presentes(self, auditor, tmp_path):
+        md = tmp_path / "UNIDAD_1_ML_FUNDAMENTALS.md"
+        fases = [
+            "Selección de Arquitectura", "Diseño", "Implementación",
+            "Evaluación", "Despliegue", "Iteración",
+        ]
+        secciones = "\n\n".join(f"### {fase}\n\nTexto de la fase." for fase in fases)
+        md.write_text(f"# Unidad 1\n\n## 🔄 El Ciclo del Agente\n\n{secciones}\n", encoding="utf-8")
+        resultado = auditor.audit_unit(md)
+        assert not any(
+            "Ciclo del Agente" in h for h in resultado["hallazgos"]["patron_pedagogico"]
+        )
+
+    def test_excluye_unidad_4_de_la_verificacion_del_ciclo(self, auditor, tmp_path):
+        md = tmp_path / "UNIDAD_4_SISTEMAS_ADAPTATIVOS.md"
+        md.write_text("# Unidad 4\n\nContenido de línea de investigación, sin el ciclo.\n", encoding="utf-8")
+        resultado = auditor.audit_unit(md)
+        assert not any(
+            "Ciclo del Agente" in h for h in resultado["hallazgos"]["patron_pedagogico"]
+        )
 
 
 class TestAuditEstructural:
@@ -121,3 +150,29 @@ class TestAuditUnitSummary:
         }
         assert "unidad" in resultado
         assert "total_hallazgos" in resultado
+
+
+class TestAuditAllUnits:
+    def test_genera_reporte_consolidado_de_varias_unidades(self, tmp_path):
+        course_dir = tmp_path / "lecciones"
+        course_dir.mkdir()
+        (course_dir / "UNIDAD_0_PRUEBA.md").write_text("# U0\n\nsin fences.", encoding="utf-8")
+        (course_dir / "UNIDAD_1_PRUEBA.md").write_text("# U1\n\nsin fences.", encoding="utf-8")
+
+        auditor = ContentAuditorAgent(mermaid_renderer=MagicMock())
+        reporte = auditor.audit_all_units(course_dir)
+
+        assert "UNIDAD_0_PRUEBA.md" in reporte
+        assert "UNIDAD_1_PRUEBA.md" in reporte
+        assert "Reporte de Auditoría de Contenido" in reporte
+
+    def test_ordena_unidades_alfabeticamente(self, tmp_path):
+        course_dir = tmp_path / "lecciones"
+        course_dir.mkdir()
+        (course_dir / "UNIDAD_2_PRUEBA.md").write_text("# U2", encoding="utf-8")
+        (course_dir / "UNIDAD_0_PRUEBA.md").write_text("# U0", encoding="utf-8")
+
+        auditor = ContentAuditorAgent(mermaid_renderer=MagicMock())
+        reporte = auditor.audit_all_units(course_dir)
+
+        assert reporte.index("UNIDAD_0_PRUEBA.md") < reporte.index("UNIDAD_2_PRUEBA.md")

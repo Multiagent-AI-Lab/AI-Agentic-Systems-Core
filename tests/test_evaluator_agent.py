@@ -60,3 +60,8 @@ class TestEvaluate:
     def test_retroalimentacion_incluye_calificacion_final(self, evaluator: EvaluatorAgent):
         resultado = evaluator.evaluate("x = 1")
         assert "Calificación final" in resultado["retroalimentacion"]
+
+    def test_proceso_menciona_el_ciclo_del_agente(self, evaluator: EvaluatorAgent):
+        resultado = evaluator.evaluate("x = 1")
+        retro = resultado["criterios"]["Proceso (patrón pedagógico)"]["retroalimentacion"]
+        assert "Ciclo del Agente" in retro
