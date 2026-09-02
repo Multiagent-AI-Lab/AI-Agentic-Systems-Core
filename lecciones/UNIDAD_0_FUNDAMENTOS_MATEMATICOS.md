@@ -735,6 +735,12 @@ Con esta evidencia, el agente indexa su memoria vectorial en `float32`: reduce a
 
 Si en producción el rango de compresión $k$ se incrementa (por ejemplo, para mejorar la fidelidad de recuperación), el error de compresión decrece y eventualmente puede volverse comparable al error de `float32` — en ese punto, la decisión de diseño debe revisarse repitiendo esta misma medición con el nuevo $k$, no asumiendo que la conclusión de hoy sigue siendo válida indefinidamente.
 
+## Antes de continuar: un cambio deliberado de registro
+
+Esta unidad exigió el nivel más alto de formalismo matemático de todo el curso: SVD, backpropagation como diferenciación automática, exponentes de Lyapunov, geometría de la información, transporte óptimo, topología algebraica. Si llegaste hasta aquí siguiendo las derivaciones y el código verificado de los 8 capítulos, ya tienes el aparato formal completo que sostiene a cualquier sistema de IA moderno — más del que la mayoría de las implementaciones de producción invocan explícitamente.
+
+La Unidad 1 cambia de registro a propósito, no por facilidad. Vuelve a la ingeniería de software desde cero — qué es un agente, qué es una Tool, cómo se prueba un modelo — porque los conceptos de arquitectura de agentes (Modelo + Harness) no requieren este mismo aparato matemático para entenderse ni para construirse correctamente. No es que lo aprendido aquí deje de aplicar: reaparece explícitamente más adelante (la causalidad del Capítulo 5 vuelve en la fase de Evaluación de la Unidad 3; la compresión de memoria de esta misma sección es el mismo problema que enfrentará cualquier sistema de memoria de agentes real). Pero entre aquí y allá, el curso te pide deliberadamente bajar el nivel de formalismo para subir el nivel de ingeniería de sistemas — son habilidades distintas, y esta unidad ya te dio la primera.
+
 ### Diccionario de Variables
 
 | Símbolo | Nombre | Descripción |

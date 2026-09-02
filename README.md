@@ -55,6 +55,13 @@ pytest tests/ -v --tb=short
 
 ## Estructura del curso
 
+**Público objetivo:** este curso no es para quien está aprendiendo bases de
+matemáticas por primera vez (a diferencia de LP, U1-U3 de primer semestre).
+Está pensado para quien **ya sabe álgebra lineal, cálculo multivariable y
+probabilidad** y quiere aprender a construir sistemas multiagente de
+calidad — aplicables después a nanotecnología (Antigravity-Nano) o a
+cualquier otro dominio.
+
 El contenido pedagógico en `lecciones/` cubre 5 unidades (U0-U4). U0-U3 son
 práctica estandarizada (fundamentos y patrones ya consolidados en la
 industria); U4 es Línea de Investigación (contenido de frontera, sin el
@@ -71,6 +78,49 @@ mismo nivel de estandarización de producción que U0-U3).
 La práctica de U3 vive en `notebooks/practica_u3/` (8 notebooks, ver
 sección "Notebooks de Práctica" de `lecciones/UNIDAD_3_SISTEMAS_MULTI_AGENTE.md`)
 e instala con `pip install -e ".[practica-u3]"`.
+
+### 🗺️ Mapa del Curso: Dependencias y Coherencia entre Unidades
+
+El orden es estrictamente secuencial (U0→U4), pero dos capas de información
+quedaban solo en prosa dispersa: dónde cambia el registro (nivel de
+formalismo esperado del lector) y qué vocabulario/conceptos concretos
+reaparecen explícitamente de una unidad a otra.
+
+```mermaid
+graph LR
+  U0["U0: Fundamentos Matemáticos<br/>(nivel: posgrado — EMALCA)"]
+  U1["U1: ML Fundamentals<br/>(nivel: ingeniería de software, desde cero)"]
+  U2["U2: IA Aplicada Genérica"]
+  U3["U3: Sistemas Multi-Agente"]
+  U4["U4: Sistemas Adaptativos<br/>(Línea de Investigación)"]
+
+  U0 -->|"⚠️ cambio de registro<br/>(ver nota de cierre en U0)"| U1
+  U1 --> U2 --> U3 --> U4
+  U0 -."Causalidad / DAG causal<br/>(Cap. 5)".-> U3
+  U1 -."Harness: Tools, Memory, Guardrails".-> U3
+  U1 -."Harness: Memory".-> U4
+  U1 -."Anatomía del Agente".-> U2
+
+  style U0 fill:#e8d5f5,stroke:#8855aa
+  style U1 fill:#ffe0e0,stroke:#cc6666
+  style U4 fill:#fff4cc,stroke:#ccaa33
+```
+
+- **U0→U1** es la única transición con cambio de nivel de audiencia (de
+  formalismo matemático de posgrado a ingeniería de software introductoria)
+  — reconocido explícitamente en la sección "Antes de continuar: un cambio
+  deliberado de registro" al cierre de U0, para que el lector re-calibre
+  expectativas en vez de sentir un salto sin explicación.
+- **Harness** (Modelo + Harness: Tools, Memory, Guardrails — definido en
+  U1) es el hilo conductor más largo del curso: reaparece explícitamente al
+  organizar los 3 vectores de ataque de la sección de Seguridad en U3
+  (tool misuse ataca Tools, memory poisoning ataca Memory), y otra vez en
+  U4 al discutir por qué un agente que aprende agrava el riesgo de memory
+  poisoning sobre su propio componente Memory.
+- **Causalidad / DAG causal** (Capítulo 5 de U0) es la segunda conexión
+  diferida más larga: se retoma explícitamente en la fase de Evaluación
+  de U3, para distinguir causa de correlación al depurar fallos en un
+  sistema multiagente.
 
 ## Estructura del repositorio
 
