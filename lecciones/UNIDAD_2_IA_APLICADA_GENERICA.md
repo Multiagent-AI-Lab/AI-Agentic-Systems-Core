@@ -6,6 +6,8 @@
 
 La Unidad 1 definió qué es un agente (Modelo + Harness: Tools, Memory, Guardrails) y entrenó dos modelos de ML de propósito general. Esta unidad no repite esa anatomía — la da por asumida — y avanza directo a dos técnicas de IA aplicada que resuelven un problema distinto al de clasificar o regresionar: **decidir dónde mirar a continuación** cuando evaluar es costoso (Optimización Bayesiana) y **decidir qué es anómalo** sin tener ejemplos etiquetados de la anomalía (Detección de Anomalías). El Diccionario de Variables de unidades anteriores no se repite aquí.
 
+Esta es la última unidad centrada en una sola pieza de IA aislada — Optimización Bayesiana y Detección de Anomalías son, igual que el árbol de decisión y la red neuronal de la Unidad 1, capacidades que un agente orquesta más que tareas que un humano ejecuta directamente hoy. La Unidad 3 da el salto real del curso: de piezas individuales a **sistemas** de agentes coordinados — el tema en el que este curso se centra.
+
 ---
 
 ## Optimización Bayesiana

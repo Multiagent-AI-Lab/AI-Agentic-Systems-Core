@@ -10,6 +10,8 @@ Esta unidad parte de una premisa deliberadamente distinta a la de un curso intro
 
 Este curso no es un curso de matemáticas puras ni un curso de "aprende a llamar una API de LLM". Es un curso de **ingeniería de sistemas multiagente**, y esta unidad es su cimiento formal. Cada unidad posterior invocará explícitamente los conceptos aquí introducidos: el Diccionario de Variables de esta unidad reaparecerá en fórmulas de unidades futuras, y la sección de Teoría de la Información/Causalidad (Capítulo 6) se retoma explícitamente en la fase de Evaluación del Ciclo del Agente en la Unidad 3.
 
+Vale la pena decir explícitamente por qué el curso avanza en este orden. Ajustar un árbol de decisión, elegir hiperparámetros, decidir entre dos técnicas de IA aplicada — tareas que hasta hace pocos años definían el trabajo de un ingeniero de ML — hoy las puede tomar un **agente**, apoyado en las mismas matemáticas de esta unidad. Las Unidades 1 y 2 enseñan ML clásico e IA aplicada no como destino final, sino porque un agente que decide "árbol de decisión o red neuronal" necesita el mismo criterio que un humano necesitaría para tomar esa decisión — ese criterio no se automatiza sin antes entenderlo. El destino real de este curso es la Unidad 3: sistemas de varios agentes coordinados, construidos y desplegados en producción — ahí es donde vive la mayor parte de la práctica ejecutable de todo el curso.
+
 El objetivo no es demostrar teoremas desde los axiomas — es mostrar la correspondencia exacta entre la fórmula en papel y la línea de código que la implementa, y dejar claro qué pregunta matemática resuelve cada pieza de un agente de IA.
 
 ---

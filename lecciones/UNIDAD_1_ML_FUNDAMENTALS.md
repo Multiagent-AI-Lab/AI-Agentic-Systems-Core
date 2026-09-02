@@ -6,6 +6,8 @@
 
 La Unidad 0 dio el lenguaje matemático formal (álgebra lineal, cálculo, probabilidad, información) que sostiene cualquier sistema de IA. Esta unidad da el primer paso de ingeniería: define qué es un **agente** como pieza de software, y muestra el ciclo de vida completo de dos modelos de Machine Learning —uno clásico, uno neuronal— construidos con el mismo rigor de verificación que exigirá el resto del curso. El Diccionario de Variables de la Unidad 0 no se repite aquí; los símbolos nuevos de esta unidad son propios del contexto de ML (datasets, hiperparámetros, métricas).
 
+Entrenar estos dos modelos a mano tiene un propósito concreto que va más allá de "aprender ML": es exactamente el tipo de decisión — ¿qué arquitectura elegir?, ¿el modelo generaliza o memorizó?, ¿qué métrica es la correcta para este problema? — que un agente con acceso a estas mismas herramientas puede tomar por sí mismo hoy. El objetivo de esta unidad no es que el lector se convierta en ingeniero de ML clásico, sino que entienda el criterio de decisión lo suficientemente bien como para reconocer cuándo un agente lo está aplicando correctamente y cuándo no — el rol que ejercerá al construir sistemas multiagente en la Unidad 3.
+
 ---
 
 ## ¿Qué es un Agente? — Anatomía de un Agente

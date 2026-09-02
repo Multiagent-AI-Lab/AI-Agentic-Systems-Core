@@ -1,10 +1,35 @@
 # AI-Agentic-Systems-Core
 
-## Curso genérico de IA, Machine Learning y Sistemas Multi-Agente — UCEMICH
+## Curso de Desarrollo y Despliegue de Sistemas Multiagente — UCEMICH
 
 Repositorio hermano de [Programming-Logic-Agentic-AI-Development](https://github.com/Multiagent-AI-Lab/Programming-Logic-Agentic-AI-Development),
 [Probability-Statistics-Agentic-AI-Core](https://github.com/Multiagent-AI-Lab/Probability-Statistics-Agentic-AI-Core)
 y [Antigravity-Nano-Research-Multiagentic-Core](https://github.com/Multiagent-AI-Lab/Antigravity-Nano-Research-Multiagentic-Core).
+
+**El fin de este curso es U3: construir y desplegar sistemas multiagente
+de producción.** Todo lo anterior es fundamento, no destino:
+
+- **U0 (matemática)** no enseña matemática por sí misma — muestra cómo esas
+  herramientas (álgebra lineal, cálculo, probabilidad, información) se
+  ensamblan hoy dentro de los sistemas de IA reales que el resto del curso
+  construye y despliega.
+- **U1-U2 (ML clásico, IA aplicada)** ya no son el punto de llegada que
+  fueron en la IA de hace una década. Entrenar un árbol de decisión, ajustar
+  hiperparámetros, elegir entre optimización bayesiana o grid search: son
+  tareas que hoy un **agente puede orquestar y decidir por sí mismo** — un
+  sistema multiagente moderno usa modelos clásicos como una herramienta más
+  dentro de su Harness (ver U1), no como el producto final del ingeniero.
+  U1-U2 dan el vocabulario y el criterio de decisión que ese agente necesita
+  para tomar esas mismas decisiones — se aprenden porque hay que saber
+  evaluarlas, no porque construir un clasificador sea ya el trabajo central
+  de quien diseña sistemas de IA en 2026.
+- **U3 (Sistemas Multi-Agente)** es donde el curso llega a su tema real: no
+  un modelo aislado, sino varios agentes (o un agente con herramientas y
+  memoria persistente) coordinados para resolver tareas — el 80% de la
+  práctica ejecutable del curso vive aquí (337 celdas de código real en
+  `notebooks/practica_u3/`, más que el resto de las unidades juntas).
+- **U4** mira hacia adelante: qué pasa cuando el propio agente cambia su
+  comportamiento con el tiempo, en vez de ejecutar una política fija.
 
 Cubre los fundamentos genéricos de IA/ML/Sistemas Multi-Agente que antes
 vivían mezclados con contenido de nanotecnología en Antigravity-Nano.
