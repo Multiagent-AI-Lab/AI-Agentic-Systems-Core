@@ -286,9 +286,19 @@ del resto del curso —
 
 **Nota de origen:** estos notebooks fueron validados originalmente en
 marzo de 2026 como parte de la Unidad 5 del curso hermano de
-Nanotecnología — las versiones de dependencias en `practica-u3` se
-preservan exactas a esa validación, no se actualizan a las versiones más
-nuevas del resto de este repo, para no arriesgar romper código ya probado.
+Nanotecnología — la mayoría de las versiones de dependencias en
+`practica-u3` se preservan exactas a esa validación, para no arriesgar
+romper código ya probado. 4 excepciones necesarias por conflictos reales
+de resolución (`tenacity`, `langchain-core`, `litellm` ajustados o
+agregados; ninguna afecta comportamiento observado en los notebooks) y una
+que sí es deuda conocida: **`langchain-google-genai` bajó de `2.1.4` a
+`2.0.10`** (downgrade de minor, con diferencias de API entre ambas) porque
+ninguna versión `2.1.x` es compatible con `google-generativeai==0.8.5` —
+esta combinación resuelve sin conflicto de dependencias pero no fue
+ejecutada end-to-end contra los notebooks que la usan. Si vas a usar esos
+notebooks en un contexto donde la compatibilidad es crítica, valida
+primero con una llamada real a `ChatGoogleGenerativeAI` en un entorno
+desechable.
 
 ### Diccionario de Variables
 
