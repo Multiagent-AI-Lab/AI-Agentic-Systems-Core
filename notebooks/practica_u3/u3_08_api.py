@@ -46,7 +46,7 @@ if OPENROUTER_API_KEY:
         model=OPENROUTER_MODEL,
         temperature=0,
         default_headers={
-            "HTTP-Referer": "https://github.com/antigravity-nano",
+            "HTTP-Referer": "https://github.com/Multiagent-AI-Lab/AI-Agentic-Systems-Core",
             "X-Title": "AI Agentic Systems Core - U3_08",
         },
     )
