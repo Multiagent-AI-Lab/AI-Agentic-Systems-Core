@@ -65,8 +65,12 @@ mismo nivel de estandarización de producción que U0-U3).
 | U0 | Fundamentos Matemáticos | Práctica estandarizada |
 | U1 | ML Fundamentals | Práctica estandarizada |
 | U2 | IA Aplicada Genérica | Práctica estandarizada |
-| U3 | Sistemas Multi-Agente | Práctica estandarizada |
+| U3 | Sistemas Multi-Agente (teoría + práctica) | Práctica estandarizada |
 | U4 | Sistemas Agénticos Adaptativos | **Línea de Investigación** |
+
+La práctica de U3 vive en `notebooks/practica_u3/` (8 notebooks, ver
+sección "Notebooks de Práctica" de `lecciones/UNIDAD_3_SISTEMAS_MULTI_AGENTE.md`)
+e instala con `pip install -e ".[practica-u3]"`.
 
 ## Estructura del repositorio
 

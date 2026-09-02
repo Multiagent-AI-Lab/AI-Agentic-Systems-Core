@@ -262,6 +262,34 @@ print(resultado_memoria)
 
 Ejecutado, produce `{'passed': True, 'hallazgos': []}` — `SafetyGateAgent` aprueba este output sin ningún hallazgo, a pesar de que la frase es exactamente el tipo de afirmación que resultaría de un memory poisoning exitoso (una entrada envenenada en la memoria persistente que le hizo creer al agente que el usuario tiene privilegios que en realidad no le fueron otorgados). No hay ningún patrón textual sospechoso que buscar en *esta* llamada aislada: el texto es gramaticalmente normal y no repite ninguna instrucción de "ignorar" nada. Detectar este caso **requeriría inspeccionar el historial persistente entre llamadas** — comparar esta afirmación contra el registro real de permisos otorgados, algo que `check_output()` no tiene forma de hacer porque solo recibe el texto de una única salida, sin acceso al estado acumulado del sistema. De forma análoga, `SafetyGateAgent` tampoco detectaría tool misuse o escalación de privilegios: sus patrones son puramente textuales sobre el contenido de una respuesta, no hay ningún **sistema de permisos por herramienta** que verifique si la acción que un agente está a punto de ejecutar está autorizada para ese agente en ese contexto. Este no es un defecto de implementación a corregir con más expresiones regulares — es una limitación estructural del enfoque (un validador de texto aislado, sin estado ni contexto de permisos) frente a dos clases de ataque que por definición requieren ese estado y ese contexto para ser detectables. Un sistema de producción necesitaría, además de `SafetyGateAgent`, una capa de auditoría de memoria (que compare escrituras nuevas contra un registro de procedencia) y una capa de autorización por herramienta (que verifique permisos antes de ejecutar, no después de observar el texto de salida).
 
+## Notebooks de Práctica
+
+La teoría de este capítulo (selección de arquitectura, diseño, evaluación,
+despliegue, seguridad) se acompaña de 8 notebooks de implementación real en
+`notebooks/practica_u3/` — código ejecutable, no derivado de este
+Markdown, que no se regenera con `convert_to_notebooks.py`.
+
+| Notebook | Fase del Ciclo del Agente que profundiza | Contenido principal |
+|---|---|---|
+| `U3_01_FUNDAMENTOS_AGENTES_MODERNOS.ipynb` | Implementación | ReAct, AgentExecutor, LCEL, 4 tipos de memoria, Smolagents CodeAgent |
+| `U3_02_LANGCHAIN_AVANZADO_LANGGRAPH.ipynb` | Implementación, Despliegue | LangGraph StateGraph, ciclos, checkpoints, HITL, observabilidad con LangSmith |
+| `U3_03_CREWAI_SISTEMAS_MULTIAGENTE.ipynb` | Implementación | CrewAI: roles, tareas, memoria, human feedback |
+| `U3_04_GOOGLE_ADK_A2A_COMP.ipynb` | Selección de Arquitectura, Implementación | Google ADK, protocolo A2A, MCP desde cero |
+| `U3_05_RAG_MEMORIA_AVANZADA.ipynb` | Implementación | RAG, ChromaDB, memoria persistente episódica |
+| `U3_06_GRAPH_RAG_MEMORIA.ipynb` | Implementación | GraphRAG, Neo4j, grafos de conocimiento |
+| `U3_07_MULTIMODAL_PRODUCCION.ipynb` | Implementación, Despliegue | Multimodal, FastAPI async, observabilidad, model routing |
+| `U3_08_PROYECTO_INTEGRADOR.ipynb` | Iteración | Sistema multi-agente end-to-end integrando las fases anteriores |
+
+**Instalación:** estos notebooks requieren dependencias adicionales a las
+del resto del curso —
+`pip install -e ".[practica-u3]"` (además de la instalación base).
+
+**Nota de origen:** estos notebooks fueron validados originalmente en
+marzo de 2026 como parte de la Unidad 5 del curso hermano de
+Nanotecnología — las versiones de dependencias en `practica-u3` se
+preservan exactas a esa validación, no se actualizan a las versiones más
+nuevas del resto de este repo, para no arriesgar romper código ya probado.
+
 ### Diccionario de Variables
 
 | Símbolo | Nombre | Descripción |
