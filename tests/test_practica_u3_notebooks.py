@@ -24,10 +24,16 @@ EXPECTED_NOTEBOOKS = [
 #   1. Esquemas de URL (http://, https://...): en "https://" la "s:" seguida
 #      de "/" matchearía como unidad de Windows.
 #   2. Secuencias de escape de string dentro del propio código fuente Python
-#      (p. ej. `"Responde:\n"`, donde "e:" + "\" + "n" matchea igual) — el
-#      separador no debe ir seguido de una letra de escape común de Python.
+#      (p. ej. `"Responde:\n"`, donde "e:" + "\" + "n" matchea igual). En vez
+#      de excluir letras de escape tras el separador (enfoque anterior, que
+#      generaba falsos negativos con rutas reales como `C:\nano\...` o
+#      `C:\temp\...`, cuyo primer segmento empieza justo con una letra de
+#      escape), se exige que lo que sigue al separador sea un segmento de
+#      ruta plausible: 2+ caracteres de nombre de archivo/carpeta seguidos
+#      de otro separador — un escape de string real (`\n`, `\t`, `"`, etc.)
+#      nunca tiene esa forma.
 _URL_SCHEME_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]*://")
-_ABSOLUTE_PATH_PATTERN = re.compile(r"""[A-Za-z]:[\\/](?![ntrbfav0'"\\])|/home/|/Users/""")
+_ABSOLUTE_PATH_PATTERN = re.compile(r"[A-Za-z]:[\\/][A-Za-z0-9_.-]{2,}[\\/]|/home/|/Users/")
 
 
 def _has_hardcoded_absolute_path(line: str) -> bool:
