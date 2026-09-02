@@ -27,6 +27,35 @@ completa por sí sola: U3 tiene la teoría sin práctica, U5 tiene la práctica
 sin el marco conceptual que la conecta a Selección de Arquitectura, Evaluación
 (causalidad) y Seguridad ya escritos en U3.
 
+**Hallazgo de auditoría (revisando imports reales de los 8 notebooks antes
+de escribir el plan):** los notebooks no son autónomos. Dependen de 7
+módulos de `external_skills/` de Antigravity-Nano — infraestructura de
+agentes genérica (no específica de nanotecnología), cargada casi siempre vía
+`sys.path.insert` relativo a la posición del notebook en ese árbol:
+
+| Módulo | Usado por |
+|---|---|
+| `external_skills.agent_warmup.context_loader` | U5_01, U5_02, U5_03 |
+| `external_skills.routing.task_classifier` | U5_02, U5_03, U5_07 |
+| `external_skills.evaluation.output_scorer` | U5_03, U5_08 |
+| `external_skills.memory.episodic_retriever` | U5_05, U5_08 |
+| `external_skills.observability.trace_annotator` | U5_02, U5_08 |
+| `external_skills.apis.token_budget_guard` | U5_04, U5_05, U5_08 |
+| `external_skills.apis.github_skill_loader` | U5_07 |
+
+`external_skills/registry.py` (263 líneas) es el cargador versionado que
+referencia estos módulos por nombre (`load_skill("episodic_retriever")`,
+etc.) — también migra, pero **filtrado**: conserva solo las 7 entradas de
+la tabla de arriba. Sus otras dos entradas (`graph_memory`,
+`github_skill_loader`→`orchestration`/`librarian_rag`) no son importadas por
+ningún notebook de los 8 migrados y se quedan en Antigravity-Nano.
+
+`U5_04_GOOGLE_ADK_A2A_COMP.ipynb` además tiene una ruta absoluta
+hardcodeada de una máquina distinta
+(`d:/Users/UCEMICH/Desktop/antigravity projects/...`) en un
+`load_dotenv()` — debe corregirse a una ruta relativa/`Path` durante la
+migración, no preservarse tal cual.
+
 ## Objetivo
 
 Unificar ambas en una sola U3 completa dentro de `AI-Agentic-Systems-Core`:
@@ -38,6 +67,11 @@ sin reescribir el `.md` teórico ya publicado, sin tocar aún la U5 de origen.
 **Incluye:**
 - Copiar 8 notebooks de Antigravity-Nano a `AI-Agentic-Systems-Core`, con
   numeración `U3_` en vez de `U5_`.
+- Migrar los 7 módulos de `external_skills/` de los que dependen (tabla en
+  Contexto) a `src/multiagent_core/skills/`, junto con `registry.py`
+  filtrado a esas 7 entradas.
+- Corregir la ruta absoluta hardcodeada en `U5_04` a una ruta relativa al
+  propio repo.
 - Agregar un extra `pyproject.toml` (`practica-u3`) con las versiones exactas
   con las que esos notebooks fueron validados — no unificar con las
   versiones ya fijadas para el resto de `sys_agents` (más nuevas).
@@ -84,6 +118,35 @@ sin reescribir el `.md` teórico ya publicado, sin tocar aún la U5 de origen.
 `notebooks/*.ipynb` (los 5 generados automáticamente desde `lecciones/`) —
 marca visualmente que estos NO se regeneran desde Markdown.
 
+### Módulos de `external_skills/` migrados
+
+| Origen (Antigravity-Nano) | Destino (AI-Agentic-Systems-Core) |
+|---|---|
+| `external_skills/agent_warmup/context_loader.py` | `src/multiagent_core/skills/agent_warmup/context_loader.py` |
+| `external_skills/routing/task_classifier.py` | `src/multiagent_core/skills/routing/task_classifier.py` |
+| `external_skills/evaluation/output_scorer.py` | `src/multiagent_core/skills/evaluation/output_scorer.py` |
+| `external_skills/memory/episodic_retriever.py` | `src/multiagent_core/skills/memory/episodic_retriever.py` |
+| `external_skills/observability/trace_annotator.py` | `src/multiagent_core/skills/observability/trace_annotator.py` |
+| `external_skills/apis/token_budget_guard.py` | `src/multiagent_core/skills/apis/token_budget_guard.py` |
+| `external_skills/apis/github_skill_loader.py` | `src/multiagent_core/skills/apis/github_skill_loader.py` |
+| `external_skills/registry.py` (filtrado a 7 entradas) | `src/multiagent_core/skills/registry.py` |
+
+Cada notebook migrado cambia su `sys.path.insert`/import relativo por un
+import absoluto de paquete: `from src.multiagent_core.skills.<paquete>.<modulo> import ...`,
+consistente con la convención de imports del resto de este repo
+(`from src.multiagent_core.tutor_agent import TutorAgent`, etc. — ver
+CLAUDE.md). Los tests de cada módulo migrado (clases correspondientes de
+`tests/test_external_skills.py` de origen: `TestContextLoader`,
+`TestTaskClassifier`, `TestOutputScorer`, `TestEpisodicRetriever`,
+`TestTraceAnnotator`, `TestTokenBudgetGuard`, y las 4 pruebas de
+`TestRegistry` — ninguna de las cuales ejercita `graph_memory` ni
+`github_skill_loader`, así que migran sin ajuste de alcance) migran a
+`tests/skills/test_<modulo>.py` en este repo, adaptando solo la ruta de
+import. `github_skill_loader.py` no tiene clase de test dedicada en el
+origen (deuda preexistente, no introducida por esta migración) — migra sin
+tests nuevos, documentado como deuda heredada en el reporte de la tarea que
+lo mueva.
+
 ### `pyproject.toml` — extra `practica-u3`
 
 Nuevo grupo `[project.optional-dependencies]` con las versiones exactas de
@@ -114,6 +177,13 @@ Variables, una sección `## Notebooks de Práctica` con:
 - Test que verifica que `convert_to_notebooks.py`/`NotebookCompilerAgent` no
   itera `notebooks/practica_u3/` (evitar que un futuro cambio intente tratar
   estos notebooks de autor como si fueran generados).
+- Test que verifica que ningún notebook migrado en `notebooks/practica_u3/`
+  contiene una ruta absoluta de sistema de archivos en su fuente (regex
+  sobre `[A-Za-z]:[\\/]` o `/home/`/`/Users/` fuera de comentarios de
+  ejemplo) — cubre la regresión de la ruta hardcodeada de `U5_04`.
+- Tests de los 7 módulos migrados de `external_skills/` (ver tabla arriba)
+  pasan en `tests/skills/` importando desde
+  `src.multiagent_core.skills.*`.
 
 ## Global Constraints
 
@@ -125,3 +195,7 @@ Variables, una sección `## Notebooks de Práctica` con:
   probados.
 - El dominio de ejemplos de los notebooks migrados no se reescribe.
 - `U5_00` (meta-notebook) y la variante `_GEMMA4` de `U5_04` no migran.
+- `external_skills/graph_memory.py` y la entrada `github_skill_loader`→`orchestration`/`librarian_rag`
+  de `registry.py` NO migran — ningún notebook de los 8 los importa.
+- La ruta absoluta hardcodeada en `U5_04` se corrige durante la migración
+  (no se preserva como estaba en origen).
