@@ -20,25 +20,54 @@ EXPECTED_NOTEBOOKS = [
 # Rutas absolutas de sistema de archivos: unidad de Windows (C:\, d:/...) o
 # raíz POSIX de usuario (/home/, /Users/). No debe aparecer ninguna en el
 # código fuente de los notebooks migrados.
-# Dos clases de falso positivo excluidas explícitamente:
+# Tres clases de falso positivo excluidas explícitamente:
 #   1. Esquemas de URL (http://, https://...): en "https://" la "s:" seguida
 #      de "/" matchearía como unidad de Windows.
 #   2. Secuencias de escape de string dentro del propio código fuente Python
-#      (p. ej. `"Responde:\n"`, donde "e:" + "\" + "n" matchea igual). En vez
-#      de excluir letras de escape tras el separador (enfoque anterior, que
-#      generaba falsos negativos con rutas reales como `C:\nano\...` o
-#      `C:\temp\...`, cuyo primer segmento empieza justo con una letra de
-#      escape), se exige que lo que sigue al separador sea un segmento de
-#      ruta plausible: 2+ caracteres de nombre de archivo/carpeta seguidos
-#      de otro separador — un escape de string real (`\n`, `\t`, `"`, etc.)
-#      nunca tiene esa forma.
+#      (p. ej. `"Responde:\n"`, donde "e:" + "\" + "n" matchea igual). Se
+#      exige que lo que sigue al separador sea un segmento de ruta plausible:
+#      2+ caracteres de nombre de archivo/carpeta seguidos de otro separador
+#      — un escape de string real (`\n`, `\t`, `"`, etc.) nunca tiene esa
+#      forma por sí solo. Esto evita a su vez falsos negativos con rutas
+#      reales cuyo primer segmento empieza con una letra de escape, como
+#      `C:\nano\...` o `C:\temp\...`.
+#   3. La letra de "unidad de disco" en medio de una palabra (p. ej. la "l"
+#      de "Total:\t42\t" — un escape de tabulador, no una ruta — donde "l:"
+#      seguido de un segmento de 2+ caracteres alfanuméricos y otro
+#      separador cumplía por accidente el patrón de arriba). Se exige que la
+#      letra de unidad esté aislada: no puede estar precedida por otra letra
+#      o dígito, así que solo dispara cuando de verdad podría ser el inicio
+#      de una ruta ("C:\...", "5C:\..." no cuenta, pero tampoco cuenta si es
+#      la letra final de una palabra como "Total").
 _URL_SCHEME_PATTERN = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]*://")
-_ABSOLUTE_PATH_PATTERN = re.compile(r"[A-Za-z]:[\\/][A-Za-z0-9_.-]{2,}[\\/]|/home/|/Users/")
+_ABSOLUTE_PATH_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9])[A-Za-z]:[\\/][A-Za-z0-9_.-]{2,}[\\/]|/home/|/Users/"
+)
 
 
 def _has_hardcoded_absolute_path(line: str) -> bool:
     line_without_urls = _URL_SCHEME_PATTERN.sub("", line)
     return bool(_ABSOLUTE_PATH_PATTERN.search(line_without_urls))
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        (r'path = "C:\Users\ljyud\file.txt"', True),
+        (r'path = "C:/Users/ljyud/file.txt"', True),
+        (r'path = "C:\nano\algo\file.txt"', True),
+        (r'path = "C:\temp\cache\file.txt"', True),
+        (r'url = "https://api.openai.com/v1/chat"', False),
+        (r'url = "http://export.arxiv.org/api"', False),
+        (r'print("Responde:\n", x)', False),
+        (r'print("Total:\t42\t")', False),
+        (r'path = "/home/user/file"', True),
+        (r'path = "/Users/name/file"', True),
+        (r'x = "C:\a\b"', False),
+    ],
+)
+def test_has_hardcoded_absolute_path_no_da_falsos_positivos_ni_negativos(line, expected):
+    assert _has_hardcoded_absolute_path(line) is expected
 
 
 @pytest.mark.parametrize("filename", EXPECTED_NOTEBOOKS)
