@@ -53,6 +53,21 @@ pip install -e ".[dev]"
 pytest tests/ -v --tb=short
 ```
 
+## Estructura del curso
+
+El contenido pedagógico en `lecciones/` cubre 5 unidades (U0-U4). U0-U3 son
+práctica estandarizada (fundamentos y patrones ya consolidados en la
+industria); U4 es Línea de Investigación (contenido de frontera, sin el
+mismo nivel de estandarización de producción que U0-U3).
+
+| Unidad | Título | Tipo |
+|---|---|---|
+| U0 | Fundamentos Matemáticos | Práctica estandarizada |
+| U1 | ML Fundamentals | Práctica estandarizada |
+| U2 | IA Aplicada Genérica | Práctica estandarizada |
+| U3 | Sistemas Multi-Agente | Práctica estandarizada |
+| U4 | Sistemas Agénticos Adaptativos | **Línea de Investigación** |
+
 ## Estructura del repositorio
 
 ```
