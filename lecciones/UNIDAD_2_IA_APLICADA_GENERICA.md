@@ -46,8 +46,7 @@ def optimizar_funcion_objetivo(
     Returns:
         El mejor valor de x encontrado dentro de los límites dados.
     """
-    np.random.seed(semilla)  # fija también el generador legado, por reproducibilidad explícita
-    rng = np.random.default_rng(semilla)
+    rng = np.random.default_rng(semilla)  # única fuente de aleatoriedad de esta función
 
     xs = rng.uniform(limites[0], limites[1], size=n_iteraciones).reshape(-1, 1)
     ys = np.array([funcion_objetivo(x[0]) for x in xs])
@@ -98,7 +97,6 @@ def detectar_anomalias_wine(
     Returns:
         Tupla (n_normales, n_anomalias) con el conteo de cada clase detectada.
     """
-    np.random.seed(semilla)  # fija también el generador legado, por reproducibilidad explícita
     X, _ = load_wine(return_X_y=True)
 
     modelo = IsolationForest(contamination=contaminacion, random_state=semilla)
@@ -275,7 +273,6 @@ def optimizar_funcion_objetivo(
     limites: tuple[float, float], n_iteraciones: int = 10, semilla: int = 42
 ) -> float:
     """Aproxima el máximo de `funcion_objetivo` vía optimización bayesiana."""
-    np.random.seed(semilla)
     rng = np.random.default_rng(semilla)
     xs = rng.uniform(limites[0], limites[1], size=n_iteraciones).reshape(-1, 1)
     ys = np.array([funcion_objetivo(x[0]) for x in xs])
@@ -292,7 +289,6 @@ def detectar_anomalias_wine(
     semilla: int = 42, contaminacion: float = 0.1
 ) -> tuple[int, int]:
     """Detecta anomalías en Wine con IsolationForest."""
-    np.random.seed(semilla)
     X, _ = load_wine(return_X_y=True)
     modelo = IsolationForest(contamination=contaminacion, random_state=semilla)
     etiquetas = modelo.fit_predict(X)
