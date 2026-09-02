@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from ._security_patterns import API_KEY_PATTERN
+
 SKILL_METADATA = {
     "name": "code_auditor_agent",
     "description": "Audita estilo PEP8 y seguridad OWASP de código Python.",
@@ -72,12 +74,8 @@ class CodeAuditorAgent:
                     "y ejecución remota de comandos no autorizados (Riesgo OWASP LLM-02)."
                 )
 
-        api_key_pattern = re.compile(
-            r'(api_key|token|password|secret|key|passwd)\s*=\s*[\'"][a-zA-Z0-9_\-\.]{10,}[\'"]',
-            re.IGNORECASE,
-        )
         for idx, line in enumerate(code.split("\n"), 1):
-            if api_key_pattern.search(line) and "os.environ" not in line:
+            if API_KEY_PATTERN.search(line) and "os.environ" not in line:
                 issues.append(
                     f"Línea {idx} - Riesgo de Seguridad: Posible credencial o API Key expuesta en texto plano. "
                     "Se recomienda usar variables de entorno (ej. `os.getenv()`) y nunca commitear claves "

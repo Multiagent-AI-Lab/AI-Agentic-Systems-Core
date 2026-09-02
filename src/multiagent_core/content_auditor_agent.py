@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from ._fence_utils import extract_fenced_blocks
+from ._security_patterns import API_KEY_PATTERN
 from .code_auditor_agent import CodeAuditorAgent
 from .mermaid_renderer import MermaidRenderer
 
@@ -27,20 +28,22 @@ SKILL_METADATA = {
     "requires_api_key": False,
 }
 
+# Comandos LaTeX mal formados comunes en ejemplos de este repo (IA/ML/
+# optimización) — a diferencia del set original heredado de un repo de
+# nanotecnología (que solo cubría ΔG/ΔH/ΔS, termodinámica química fuera de
+# dominio aquí), estos cubren notación habitual en gradientes, sumatorias
+# y esperanza estadística sin el espacio que KaTeX exige tras el comando.
 LATEX_KNOWN_MALFORMED = {
-    r"\DeltaG": r"\Delta G",
-    r"\DeltaH": r"\Delta H",
-    r"\DeltaS": r"\Delta S",
+    r"\nablaJ": r"\nabla J",
+    r"\nablaL": r"\nabla L",
+    r"\sumi": r"\sum_i",
+    r"\mathbbE": r"\mathbb{E}",
 }
 
 _CELDA_MAGICA_IPYTHON = re.compile(r"^\s*[%!]", re.MULTILINE)
 _ARGUMENTOS_SIN_TIPO_ESPERADO = {"self", "cls"}
 _ALEATORIEDAD_PATTERN = re.compile(r"\brandom\.\w+\(|\bnp\.random\.\w+\(")
 _SEED_PATTERN = re.compile(r"\bseed\(")
-_API_KEY_PATTERN = re.compile(
-    r'(api_key|token|password|secret|key|passwd)\s*=\s*[\'"][a-zA-Z0-9_\-\.]{10,}[\'"]',
-    re.IGNORECASE,
-)
 
 
 class ContentAuditorAgent:
@@ -134,7 +137,7 @@ class ContentAuditorAgent:
                     "entre ejecuciones."
                 )
             for idx, line in enumerate(code.split("\n"), 1):
-                if _API_KEY_PATTERN.search(line) and "os.environ" not in line:
+                if API_KEY_PATTERN.search(line) and "os.environ" not in line:
                     hallazgos.append(
                         f"Línea {idx} de un bloque de ejemplo: posible clave de "
                         "API hardcodeada en texto plano."

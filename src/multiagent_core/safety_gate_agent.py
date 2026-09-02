@@ -14,6 +14,8 @@ genérica de dominio.
 import re
 from typing import Any
 
+from ._security_patterns import API_KEY_PATTERN
+
 SKILL_METADATA = {
     "name": "safety_gate_agent",
     "description": "Valida outputs de agentes contra guardrails genéricos (secretos filtrados, prompt injection reflejado, formato mínimo).",
@@ -23,10 +25,6 @@ SKILL_METADATA = {
     "requires_api_key": False,
 }
 
-_API_KEY_PATTERN = re.compile(
-    r'(api_key|token|password|secret|key|passwd)\s*=\s*[\'"][a-zA-Z0-9_\-\.]{10,}[\'"]',
-    re.IGNORECASE,
-)
 _PROMPT_INJECTION_PATTERNS = (
     re.compile(r"ignora(r)?\s+las?\s+instruccion", re.IGNORECASE),
     re.compile(r"system\s*prompt", re.IGNORECASE),
@@ -55,7 +53,7 @@ class SafetyGateAgent:
         if not agent_output.strip():
             hallazgos.append("El output está vacío — viola el formato mínimo esperado.")
 
-        for match in _API_KEY_PATTERN.finditer(agent_output):
+        for match in API_KEY_PATTERN.finditer(agent_output):
             if "os.environ" not in agent_output[max(0, match.start() - 20):match.end()]:
                 hallazgos.append(
                     "Posible credencial o API Key filtrada en texto plano en el output del agente."
