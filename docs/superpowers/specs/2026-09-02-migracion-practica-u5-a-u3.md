@@ -56,6 +56,19 @@ hardcodeada de una máquina distinta
 `load_dotenv()` — debe corregirse a una ruta relativa/`Path` durante la
 migración, no preservarse tal cual.
 
+**Segundo hallazgo:** `episodic_retriever.py` fija `_LOCAL_STORE_PATH` como
+constante de módulo evaluada al importar
+(`Path(os.environ.get("EPISODIC_STORE_PATH", Path.home() / ...))`) — viola
+el patrón ya establecido en este repo (`TutorAgent`: `chroma_path`/
+`memory_path` inyectables en el constructor, ver CLAUDE.md) y hace
+imposible aislar tests con `tmp_path`. Además `add_episode` tiene un
+`except Exception: pass` genérico al llamar al cliente Mem0 (silent
+failure). Ambos se corrigen durante la migración: la ruta de
+almacenamiento pasa a ser un parámetro con default, y la excepción se
+acota a las que el SDK de Mem0 puede lanzar razonablemente
+(`ConnectionError`, o la excepción específica del SDK si Mem0 expone una),
+registrando el fallback con `logging` en vez de silenciarlo.
+
 ## Objetivo
 
 Unificar ambas en una sola U3 completa dentro de `AI-Agentic-Systems-Core`:
