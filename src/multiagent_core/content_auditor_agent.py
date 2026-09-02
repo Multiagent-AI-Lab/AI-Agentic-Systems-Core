@@ -43,7 +43,7 @@ LATEX_KNOWN_MALFORMED = {
 _CELDA_MAGICA_IPYTHON = re.compile(r"^\s*[%!]", re.MULTILINE)
 _ARGUMENTOS_SIN_TIPO_ESPERADO = {"self", "cls"}
 _ALEATORIEDAD_PATTERN = re.compile(r"\brandom\.\w+\(|\bnp\.random\.\w+\(")
-_SEED_PATTERN = re.compile(r"\bseed\(")
+_SEED_PATTERN = re.compile(r"\bseed\(|\bdefault_rng\(")
 
 FASES_CICLO_DEL_AGENTE = (
     "Selección de Arquitectura",

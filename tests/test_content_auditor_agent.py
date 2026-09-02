@@ -82,6 +82,19 @@ class TestAuditReproducibilidad:
         resultado = auditor.audit_unit(md)
         assert resultado["hallazgos"]["reproducibilidad"] == []
 
+    def test_sin_hallazgo_si_usa_default_rng(self, auditor, tmp_path):
+        """Regresión: np.random.default_rng(semilla) es una forma de fijar
+        semilla tan válida como random.seed()/np.random.seed() — antes de
+        este fix, el auditor exigía literalmente el substring 'seed(' y
+        marcaba un falso positivo en código que ya era reproducible."""
+        md = tmp_path / "unidad.md"
+        md.write_text(
+            "```python\nimport numpy as np\nrng = np.random.default_rng(42)\nx = rng.uniform(0, 1)\n```",
+            encoding="utf-8",
+        )
+        resultado = auditor.audit_unit(md)
+        assert resultado["hallazgos"]["reproducibilidad"] == []
+
     def test_detecta_api_key_hardcodeada(self, auditor, tmp_path):
         md = tmp_path / "unidad.md"
         md.write_text(
