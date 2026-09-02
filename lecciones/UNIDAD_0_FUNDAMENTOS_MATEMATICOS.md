@@ -58,8 +58,7 @@ def aproximar_rango_bajo(matriz: np.ndarray, rango: int) -> np.ndarray:
     return U[:, :rango] @ np.diag(S[:rango]) @ Vt[:rango, :]
 
 
-np.random.seed(42)  # fija también el generador legado, por reproducibilidad explícita
-rng = np.random.default_rng(42)
+rng = np.random.default_rng(42)  # única fuente de aleatoriedad de este bloque
 A = rng.normal(size=(6, 4))
 
 U, S, Vt = np.linalg.svd(A)
@@ -147,8 +146,7 @@ def perdida_escalar(x: np.ndarray, w1: np.ndarray, w2: np.ndarray) -> float:
     return float(y**2)
 
 
-np.random.seed(7)  # fija también el generador legado, por reproducibilidad explícita
-rng = np.random.default_rng(7)
+rng = np.random.default_rng(7)  # única fuente de aleatoriedad de este bloque
 x = rng.normal(size=3)
 w1 = rng.normal(size=(2, 3))
 w2 = rng.normal(size=2)
@@ -293,8 +291,7 @@ def estimador_map_gaussiano(
     return np.linalg.solve(X.T @ X + lambda_reg * np.eye(n_features), X.T @ y)
 
 
-np.random.seed(3)  # fija también el generador legado, por reproducibilidad explícita
-rng = np.random.default_rng(3)
+rng = np.random.default_rng(3)  # única fuente de aleatoriedad de este bloque
 n_muestras, n_features = 30, 4
 X = rng.normal(size=(n_muestras, n_features))
 theta_verdadero = np.array([1.5, -2.0, 0.5, 3.0])
@@ -489,8 +486,7 @@ def atencion_escalada(
     return salida, matriz_atencion
 
 
-np.random.seed(11)  # fija también el generador legado, por reproducibilidad explícita
-rng = np.random.default_rng(11)
+rng = np.random.default_rng(11)  # única fuente de aleatoriedad de este bloque
 n_tokens, d_k, d_v = 4, 8, 6
 Q = rng.normal(size=(n_tokens, d_k))
 K = rng.normal(size=(n_tokens, d_k))
@@ -567,8 +563,7 @@ def informacion_fisher_montecarlo(
 
 
 sigma, mu = 2.0, 1.5
-np.random.seed(0)  # fija también el generador legado, por reproducibilidad explícita
-rng = np.random.default_rng(0)
+rng = np.random.default_rng(0)  # única fuente de aleatoriedad de este bloque
 fisher_cerrada = informacion_fisher_media_gaussiana(sigma)
 fisher_montecarlo = informacion_fisher_montecarlo(mu, sigma, 2_000_000, rng)
 assert np.isclose(fisher_cerrada, fisher_montecarlo, rtol=0.02)
@@ -712,8 +707,7 @@ def error_reconstruccion_svd(matriz: np.ndarray, rango: int, dtype: type) -> flo
     )
 
 
-np.random.seed(21)  # fija también el generador legado, por reproducibilidad explícita
-rng = np.random.default_rng(21)
+rng = np.random.default_rng(21)  # única fuente de aleatoriedad de este bloque
 memoria_embeddings = rng.normal(size=(200, 64)).astype(np.float64)
 
 error_f32 = error_reconstruccion_svd(memoria_embeddings, rango=8, dtype=np.float32)
@@ -785,7 +779,6 @@ from scipy.optimize import minimize
 def test_svd_reconstruye_la_matriz_y_cumple_eckart_young():
     """La SVD completa reconstruye A, y el error de rango bajo coincide
     con la prediccion del Teorema de Eckart-Young-Mirsky."""
-    np.random.seed(42)
     rng = np.random.default_rng(42)
     A = rng.normal(size=(6, 4))
     U, S, Vt = np.linalg.svd(A)
@@ -801,7 +794,6 @@ def test_svd_reconstruye_la_matriz_y_cumple_eckart_young():
 def test_backprop_manual_coincide_con_diferencias_finitas():
     """El gradiente analitico via regla de la cadena coincide con la
     diferenciacion numerica por diferencias finitas centradas."""
-    np.random.seed(7)
     rng = np.random.default_rng(7)
     x = rng.normal(size=3)
     w1 = rng.normal(size=(2, 3))
@@ -849,7 +841,6 @@ def test_exponente_lyapunov_distingue_estabilidad_de_caos():
 def test_map_gaussiano_coincide_con_minimizacion_numerica():
     """theta_MAP en forma cerrada (ridge) coincide con minimizar el
     negativo log-posterior con un optimizador numerico independiente."""
-    np.random.seed(3)
     rng = np.random.default_rng(3)
     X = rng.normal(size=(30, 4))
     theta_verdadero = np.array([1.5, -2.0, 0.5, 3.0])
@@ -910,7 +901,6 @@ def test_atencion_escalada_es_distribucion_y_combinacion_convexa():
         exp_z = np.exp(z_estable)
         return exp_z / np.sum(exp_z, axis=-1, keepdims=True)
 
-    np.random.seed(11)
     rng = np.random.default_rng(11)
     Q = rng.normal(size=(4, 8))
     K = rng.normal(size=(4, 8))
@@ -968,7 +958,6 @@ def test_error_float32_despreciable_frente_a_error_de_compresion():
             )
         )
 
-    np.random.seed(21)
     rng = np.random.default_rng(21)
     memoria = rng.normal(size=(200, 64)).astype(np.float64)
     error_f32 = error_reconstruccion_svd(memoria, 8, np.float32)
