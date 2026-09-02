@@ -170,7 +170,7 @@ def test_algoritmo_genetico_mejora_sobre_poblacion_inicial():
 
 
 def test_q_learning_aprende_la_accion_de_mayor_recompensa():
-    def entrenar_q_learning(n_estados, n_acciones, recompensas, episodios=200, tasa_aprendizaje=0.1, factor_descuento=0.9, semilla=42):
+    def entrenar_q_learning(n_estados, n_acciones, recompensas, episodios=100, tasa_aprendizaje=0.1, factor_descuento=0.9, semilla=42):
         rng = np.random.default_rng(semilla)
         tabla_q = np.zeros((n_estados, n_acciones))
         for _ in range(episodios):
