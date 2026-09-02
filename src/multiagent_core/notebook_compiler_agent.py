@@ -8,12 +8,12 @@ bloques ```python``` a celdas de código. Usa MathAgent para normalizar
 LaTeX y FlowchartAgent para inyectar diagramas automáticos.
 """
 
-import re
 from pathlib import Path
 from typing import ClassVar
 
 import nbformat as nbf
 
+from ._fence_utils import _scan_fence_segments
 from .flowchart_agent import FlowchartAgent
 
 SKILL_METADATA = {
@@ -104,35 +104,12 @@ class NotebookCompilerAgent:
         texto fuente: `("text", texto)` para tramos de Markdown y
         `("code", fence, lang, code)` para bloques delimitados por fences.
 
-        A diferencia de `extract_fenced_blocks` (que descarta el texto
+        Delega el escaneo de fences en `_scan_fence_segments` (compartido
+        con `extract_fenced_blocks`, usado por `ContentAuditorAgent`) — una
+        sola implementación real del reconocimiento de fences en el repo,
+        en vez de reimplementar el mismo bucle en cada consumidor. A
+        diferencia de `extract_fenced_blocks` (que descarta el texto
         circundante), este método conserva el texto intercalado entre
         bloques para poder reconstruir el orden real del documento.
         """
-        lines = content.split("\n")
-        segmentos: list[tuple] = []
-        texto_actual: list[str] = []
-        i = 0
-        while i < len(lines):
-            line = lines[i]
-            fence_match = re.match(r"^(`{3,})(.*)$", line)
-            if fence_match:
-                if texto_actual:
-                    segmentos.append(("text", "\n".join(texto_actual)))
-                    texto_actual = []
-
-                fence = fence_match.group(1)
-                lang = fence_match.group(2).strip()
-                code_lines: list[str] = []
-                i += 1
-                while i < len(lines) and lines[i].strip() != fence:
-                    code_lines.append(lines[i])
-                    i += 1
-                segmentos.append(("code", fence, lang, "\n".join(code_lines)))
-            else:
-                texto_actual.append(line)
-            i += 1
-
-        if texto_actual:
-            segmentos.append(("text", "\n".join(texto_actual)))
-
-        return segmentos
+        return _scan_fence_segments(content)
