@@ -582,7 +582,7 @@ print(f"F(mu) formula cerrada: {fisher_cerrada:.5f}  |  Monte Carlo: {fisher_mon
 print(f"Gradiente euclidiano: {gradiente_euclidiano}  |  Gradiente natural: {gradiente_natural}")
 ```
 
-Ejecutado, confirma `F(mu)=0.25` por ambos caminos (`0.25` vs `0.24991` con 2 millones de muestras) y que el gradiente natural amplifica el paso euclidiano por exactamente $4=1/\sigma^2$... es decir, `1/F(\mu)`.
+Ejecutado, confirma `F(mu)=0.25` por ambos caminos (`0.25` vs `0.24991` con 2 millones de muestras) y que el gradiente natural amplifica el paso euclidiano por exactamente $\sigma^2 = 1/F(\mu) = 4$.
 
 ### Conexión con sistemas de IA actuales
 
