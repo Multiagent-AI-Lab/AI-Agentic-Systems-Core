@@ -134,7 +134,11 @@ def validar_accion_permitida(accion: str, acciones_permitidas: set[str]) -> bool
     return accion in acciones_permitidas
 
 
-acciones_permitidas = {"leer_archivo", "entrenar_clasificador_iris", "entrenar_red_california_housing"}
+acciones_permitidas = {
+    "leer_archivo",
+    "entrenar_clasificador_iris",
+    "entrenar_red_california_housing",
+}
 puede_leer = validar_accion_permitida("leer_archivo", acciones_permitidas)
 puede_borrar = validar_accion_permitida("borrar_archivo", acciones_permitidas)
 print(f"¿Puede leer_archivo? {puede_leer}")
@@ -332,22 +336,35 @@ assert memoria_con_resumen.mensajes_descartados == 1
 
 ### Ejercicio B (para resolver): confirmar la sobre-ingeniería con evidencia
 
-Selección de Arquitectura afirma que una red neuronal sería "sobre-ingeniería" para Iris. Verifícalo empíricamente: entrena un árbol con `max_depth=1` (visto en la sección de Evaluación) y confirma que aun con esa restricción severa, sigue siendo competitivo frente a lo que costaría entrenar una red en un dataset de este tamaño — la exactitud cae, pero el modelo sigue siendo interpretable y entrenado en microsegundos, algo que una red nunca ofrece:
+Selección de Arquitectura afirma que una red neuronal sería "sobre-ingeniería" para Iris, pero esa afirmación no se comprueba en ningún bloque de código de la unidad. Ciérrala aquí: entrena un `MLPClassifier` sobre el mismo split de Iris y compáralo contra el árbol de decisión en exactitud **y** en tiempo de entrenamiento — la tesis de sobre-ingeniería no es que la red falle, es que iguala al árbol sin ninguna ventaja a cambio:
 
 ```python
-exactitud_completa = entrenar_clasificador_iris()
+import time
 
-modelo_limitado_b = DecisionTreeClassifier(random_state=42, max_depth=1)
-modelo_limitado_b.fit(X_train, y_train)
-exactitud_limitada = accuracy_score(y_test, modelo_limitado_b.predict(X_test))
+from sklearn.neural_network import MLPClassifier
 
-print(f"Exactitud árbol completo: {exactitud_completa:.2%}")
-print(f"Exactitud árbol max_depth=1: {exactitud_limitada:.2%}")
+t0 = time.perf_counter()
+arbol_b = entrenar_clasificador_iris()
+tiempo_arbol = time.perf_counter() - t0
 
-assert exactitud_limitada < exactitud_completa, (
-    "Limitar la profundidad del árbol debería reducir su exactitud — "
-    "si esto falla, revisa que max_depth=1 realmente esté restringiendo "
-    "el modelo (Iris con 3 clases no puede resolverse con una sola regla)."
+t0 = time.perf_counter()
+red_iris = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=500, random_state=42)
+red_iris.fit(X_train, y_train)
+exactitud_red_iris = accuracy_score(y_test, red_iris.predict(X_test))
+tiempo_red_iris = time.perf_counter() - t0
+
+print(f"Árbol: exactitud={arbol_b:.2%}, tiempo={tiempo_arbol * 1000:.2f}ms")
+print(f"Red:   exactitud={exactitud_red_iris:.2%}, tiempo={tiempo_red_iris * 1000:.2f}ms")
+print(f"La red tarda {tiempo_red_iris / tiempo_arbol:.0f}x más que el árbol")
+
+assert exactitud_red_iris <= arbol_b, (
+    "La red no debería superar al árbol en Iris — si lo hace, el argumento "
+    "de sobre-ingeniería de Selección de Arquitectura pierde su evidencia."
+)
+assert tiempo_red_iris > tiempo_arbol, (
+    "La red debería tardar más en entrenar que el árbol, incluso en un "
+    "dataset tan pequeño como Iris — si esto falla, revisa que ambos "
+    "modelos se estén midiendo con time.perf_counter() alrededor del fit()."
 )
 ```
 
@@ -442,11 +459,14 @@ Ejecutado, imprime `Código 'limpio' clasificado como: limpio`, `Código 'con ad
 | `escalador` | `StandardScaler` ajustado | Normaliza las features de California Housing antes de entrenar la red (Redes Neuronales) |
 | `rmse`, `r2` | Métricas de regresión | Error cuadrático medio (raíz) y coeficiente de determinación de la red (Redes Neuronales) |
 | `modelo_limitado`, `predicciones_limitadas`, `matriz` | Árbol restringido y su matriz de confusión | `DecisionTreeClassifier(max_depth=1)` y `confusion_matrix` real que revela la confusión entre 2 especies (Evaluación) |
-| `mensajes_descartados` | Contador de mensajes perdidos | Atributo de `MemoriaConResumen` que cuenta cuántos mensajes salieron de la ventana (Ejercicio A) |
+| `memoria_con_resumen`, `mensajes_descartados` | Instancia extendida y su contador | `MemoriaConResumen` cuenta cuántos mensajes salieron de la ventana en su atributo `mensajes_descartados`, verificado con `assert` (Ejercicio A) |
+| `arbol_b`, `red_iris`, `exactitud_red_iris` | Árbol y red comparados sobre Iris | `arbol_b` reutiliza `entrenar_clasificador_iris`; `red_iris` es un `MLPClassifier` entrenado sobre el mismo split, con exactitud igual o menor (Ejercicio B) |
+| `tiempo_arbol`, `tiempo_red_iris` | Tiempos de entrenamiento medidos | `time.perf_counter()` alrededor de cada `.fit()`, comparados para evidenciar el costo de la red frente al árbol (Ejercicio B) |
+| `r2_sin_escalar` | R² sin `StandardScaler` | Resultado de entrenar el mismo `MLPRegressor` sin escalar las features, notablemente peor que con escalado (Ejercicio C) |
 | `auditor` | Instancia de `CodeAuditorAgent` | Agente real usado para clasificar severidad de código (Cierre Auto-Referencial) |
 | `total` | Conteo de hallazgos | Suma de hallazgos de estilo y seguridad reportados por `auditor` (Cierre Auto-Referencial) |
 
-**Verificación manual del Diccionario de Variables** (el mecanismo automático de `ContentAuditorAgent._audit_diccionario_variables` es un placeholder que siempre retorna `[]` — no certifica nada): cada símbolo de la tabla fue releído contra el bloque de código donde aparece antes de agregarlo. Los símbolos de las quince filas están efectivamente usados en código Python realmente ejecutado en esta unidad: `herramientas`/`resultado` se construyen e invocan en la sección Tools; `memoria`/`tamano_maximo`/`decisiones_del_agente` se instancian y recorren en Memory; `acciones_permitidas` se pasa a `validar_accion_permitida` con dos llamadas reales; `X`/`y`/`X_train`/`X_test`/`y_train`/`y_test` se generan con `load_iris`/`fetch_california_housing`/`train_test_split` reales, tanto en las secciones principales como en la variante `max_depth=1` de Evaluación; `semilla`/`modelo`/`exactitud`/`escalador`/`rmse`/`r2` participan en los dos entrenamientos principales; `modelo_limitado`/`predicciones_limitadas`/`matriz` se construyen y se imprimen en Evaluación, con la matriz de confusión real citada en la prosa; `mensajes_descartados` se incrementa dentro de `MemoriaConResumen.agregar` y se verifica con `assert` en el Ejercicio A; `auditor`/`total` participan en las tres llamadas reales a `CodeAuditorAgent` del Cierre Auto-Referencial.
+**Verificación manual del Diccionario de Variables** (el mecanismo automático de `ContentAuditorAgent._audit_diccionario_variables` es un placeholder que siempre retorna `[]` — no certifica nada): cada símbolo de la tabla fue releído contra el bloque de código donde aparece antes de agregarlo. Los símbolos de las veinte filas están efectivamente usados en código Python realmente ejecutado en esta unidad: `herramientas`/`resultado` se construyen e invocan en la sección Tools; `memoria`/`tamano_maximo`/`decisiones_del_agente` se instancian y recorren en Memory; `acciones_permitidas` se pasa a `validar_accion_permitida` con dos llamadas reales; `X`/`y`/`X_train`/`X_test`/`y_train`/`y_test` se generan con `load_iris`/`fetch_california_housing`/`train_test_split` reales, tanto en las secciones principales como en la variante `max_depth=1` de Evaluación; `semilla`/`modelo`/`exactitud`/`escalador`/`rmse`/`r2` participan en los dos entrenamientos principales; `modelo_limitado`/`predicciones_limitadas`/`matriz` se construyen y se imprimen en Evaluación, con la matriz de confusión real citada en la prosa; `memoria_con_resumen`/`mensajes_descartados` se instancian y se incrementan dentro de `MemoriaConResumen.agregar`, verificados con `assert` en el Ejercicio A; `arbol_b`/`red_iris`/`exactitud_red_iris`/`tiempo_arbol`/`tiempo_red_iris` se entrenan y miden con `time.perf_counter()` real en el Ejercicio B, con dos `assert` sobre exactitud y tiempo; `r2_sin_escalar` se calcula entrenando el mismo `MLPRegressor` sin escalar en el Ejercicio C; `auditor`/`total` participan en las tres llamadas reales a `CodeAuditorAgent` del Cierre Auto-Referencial.
 
 ### Autoevaluación
 
