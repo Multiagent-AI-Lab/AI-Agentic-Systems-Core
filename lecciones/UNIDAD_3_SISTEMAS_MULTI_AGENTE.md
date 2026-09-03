@@ -4,7 +4,11 @@
 
 Las Unidades 1 y 2 mostraron el Ciclo del Agente aplicado a un modelo clásico, una red neuronal, y dos técnicas de IA aplicada (optimización bayesiana, detección de anomalías) — piezas individuales. Esta unidad da el salto a **sistemas**: varios agentes (o un agente con varias herramientas y una memoria persistente) coordinados para resolver una tarea que ninguno resolvería solo. El Ciclo del Agente vuelve a recorrerse completo, pero ahora cada fase enfrenta preguntas que solo aparecen cuando hay más de un agente en juego: qué framework de orquestación usar, qué información comparte cada agente con los demás, cómo depurar una falla que atraviesa varias llamadas, y — la sección más extensa de esta unidad — cómo un sistema multiagente puede ser atacado, y por qué un guardrail que funciona hoy puede no bastar mañana.
 
+**Antes de continuar — dependencias de esta unidad:** el código teórico de aquí en adelante usa `dspy`, `langgraph` y `opentelemetry-api`/`opentelemetry-sdk`, las tres ya incluidas en la instalación base del curso (`pyproject.toml`, sección `dependencies`) — no requieren ningún paso adicional. La única excepción es `networkx` (usado en la fase de Evaluación, para el DAG de dependencias entre pasos): esa librería vive exclusivamente en el extra `practica-u3` (`pip install -e ".[practica-u3]"`, ya documentado en la sección "Notebooks de Práctica" más abajo) — si solo instalaste la base del curso, el bloque de Evaluación de esta unidad fallará con un `ModuleNotFoundError` hasta instalar ese extra.
+
 ## 🔄 El Ciclo del Agente en Sistemas Multi-Agente
+
+Las Unidades 1 y 2 recorrieron el Ciclo del Agente sobre un único modelo o técnica a la vez. Aquí el mismo ciclo —Selección de Arquitectura, Diseño, Implementación, Evaluación, Despliegue, Iteración— se aplica a un **sistema completo de varios agentes coordinados**, y cada fase enfrenta una pregunta que no existía en las unidades anteriores porque no había más de un agente en juego a la vez.
 
 ### Selección de Arquitectura
 
@@ -57,6 +61,8 @@ Ejecutado, imprime `LangGraph` para el primer caso (checkpointing requerido) y `
 
 ### Diseño
 
+Diseñar un sistema multiagente exige dos decisiones que la Unidad 1 ya identificó para un solo modelo —qué información entra, y qué se considera éxito antes de construir nada— pero que aquí se multiplican por cada agente del sistema: cada uno necesita su propia respuesta a ambas preguntas, y esas respuestas no son las mismas para el coordinador que para un ejecutor.
+
 **Context Engineering**: en un sistema multiagente, no todos los agentes necesitan ver lo mismo — decidir qué entra a la ventana de contexto de cada uno es una decisión de diseño tan importante como elegir el framework. Un **agente coordinador** (el que decide qué sub-tarea asignar y a quién) necesita el objetivo global, el historial resumido de qué se ha intentado, y las capacidades declaradas de cada agente ejecutor — pero *no* necesita el detalle completo de cómo cada ejecutor resolvió su sub-tarea anterior, porque eso satura su contexto con información que no usa para decidir el siguiente paso. Un **agente ejecutor** (el que de verdad llama una herramienta o genera código) necesita lo opuesto: el detalle completo de *su* sub-tarea asignada, pero no la vista global de qué están haciendo los demás ejecutores, que le sería ruido irrelevante. La regla práctica: el coordinador recibe un **resumen** por ejecutor, cada ejecutor recibe el **detalle** de solo su propia sub-tarea. Confundir estos dos flujos de información — por ejemplo, pasarle a un ejecutor el historial completo de todos los demás agentes "por si acaso" — es la causa más común de que el costo por llamada y la latencia de un sistema multiagente crezcan sin mejorar la calidad de sus resultados.
 
 **Spec-Driven Development**: antes de implementar un agente nuevo dentro del sistema, conviene escribir su contrato explícitamente — igual que este mismo repositorio exige una spec en `docs/superpowers/specs/` antes de un plan de implementación. Una spec breve y suficiente para un agente ejecutor de código dentro de este sistema podría ser:
@@ -100,6 +106,16 @@ print(ejemplos_etiquetados[0].consulta, "->", ejemplos_etiquetados[0].categoria)
 
 Ejecutado, confirma que `dspy.Predict` envuelve la signature declarada (`Predict`) y que los dos ejemplos etiquetados quedan listos con su input marcado explícitamente (`with_inputs("consulta")`) — el formato exacto que un optimizador de DSPy (por ejemplo `BootstrapFewShot`) consumiría para ajustar automáticamente las instrucciones y los ejemplos del prompt del coordinador contra un LLM real, sin necesitar una API key para esta demostración estructural. La signature declarada arriba (`consulta -> categoria`) es exactamente la interfaz que el nodo clasificador de un grafo de LangGraph invocaría en producción:
 
+```mermaid
+graph TD
+    A[clasificar] -->|categoria == codigo| B[ejecutor_codigo]
+    A -->|categoria == general| C[ejecutor_general]
+    B --> D[END]
+    C --> D[END]
+```
+
+El grafo tiene una **arista condicional real** desde `clasificar`: la función `decidir_ejecutor` inspecciona el estado y decide a cuál de los dos nodos ejecutores continuar — no son dos nodos que se ejecutan siempre en secuencia, es una bifurcación donde solo uno de los dos caminos se recorre por invocación, dependiendo de la categoría clasificada:
+
 ```python
 from langgraph.graph import END, StateGraph
 from typing import TypedDict
@@ -120,24 +136,46 @@ def clasificar_nodo(estado: EstadoDelCoordinador) -> dict:
     return {"categoria": "codigo" if contiene_python else "general"}
 
 
-def enrutar_a_ejecutor_nodo(estado: EstadoDelCoordinador) -> dict:
-    """Nodo que anota qué agente ejecutor recibiría la consulta clasificada."""
-    return {"categoria": f"{estado['categoria']}_asignado_a_ejecutor"}
+def ejecutor_codigo_nodo(estado: EstadoDelCoordinador) -> dict:
+    """Nodo ejecutor especializado en tareas de código."""
+    return {"categoria": f"{estado['categoria']}_asignado_a_ejecutor_codigo"}
+
+
+def ejecutor_general_nodo(estado: EstadoDelCoordinador) -> dict:
+    """Nodo ejecutor general, para todo lo que no sea código."""
+    return {"categoria": f"{estado['categoria']}_asignado_a_ejecutor_general"}
+
+
+def decidir_ejecutor(estado: EstadoDelCoordinador) -> str:
+    """Función de enrutamiento: lee el estado ya clasificado y decide a qué
+    nodo ejecutor continuar. Esta función es lo que hace la arista
+    condicional — sin ella, add_edge conectaría los nodos incondicionalmente
+    y ambos se ejecutarían siempre, sin importar la categoría.
+    """
+    return "ejecutor_codigo" if estado["categoria"] == "codigo" else "ejecutor_general"
 
 
 grafo_coordinador = StateGraph(EstadoDelCoordinador)
 grafo_coordinador.add_node("clasificar", clasificar_nodo)
-grafo_coordinador.add_node("enrutar", enrutar_a_ejecutor_nodo)
+grafo_coordinador.add_node("ejecutor_codigo", ejecutor_codigo_nodo)
+grafo_coordinador.add_node("ejecutor_general", ejecutor_general_nodo)
 grafo_coordinador.set_entry_point("clasificar")
-grafo_coordinador.add_edge("clasificar", "enrutar")
-grafo_coordinador.add_edge("enrutar", END)
+grafo_coordinador.add_conditional_edges(
+    "clasificar",
+    decidir_ejecutor,
+    {"ejecutor_codigo": "ejecutor_codigo", "ejecutor_general": "ejecutor_general"},
+)
+grafo_coordinador.add_edge("ejecutor_codigo", END)
+grafo_coordinador.add_edge("ejecutor_general", END)
 
 app_coordinador = grafo_coordinador.compile()
-resultado = app_coordinador.invoke({"consulta": "escribe una función en Python", "categoria": ""})
-print(resultado)
+resultado_codigo = app_coordinador.invoke({"consulta": "escribe una función en Python", "categoria": ""})
+resultado_general = app_coordinador.invoke({"consulta": "cuál es el clima hoy", "categoria": ""})
+print(resultado_codigo)
+print(resultado_general)
 ```
 
-Ejecutado, produce `{'consulta': 'escribe una función en Python', 'categoria': 'codigo_asignado_a_ejecutor'}` — el grafo compilado de LangGraph ejecuta ambos nodos en secuencia y confirma que el enrutamiento condicional funciona de extremo a extremo sin invocar un LLM real; en producción, `clasificar_nodo` sería sustituido por una llamada a `clasificador_coordinador(consulta=estado["consulta"])` una vez que DSPy hubiera optimizado su prompt contra ejemplos etiquetados reales.
+Ejecutado, produce `{'consulta': 'escribe una función en Python', 'categoria': 'codigo_asignado_a_ejecutor_codigo'}` para la primera consulta y `{'consulta': 'cuál es el clima hoy', 'categoria': 'general_asignado_a_ejecutor_general'}` para la segunda — **dos invocaciones del mismo grafo compilado toman caminos distintos**, cada una pasando por un nodo ejecutor diferente según lo que `decidir_ejecutor` leyó del estado, que es precisamente lo que distingue una arista condicional de una secuencia fija de nodos. En producción, `clasificar_nodo` sería sustituido por una llamada a `clasificador_coordinador(consulta=estado["consulta"])` una vez que DSPy hubiera optimizado su prompt contra ejemplos etiquetados reales.
 
 ### Evaluación
 
@@ -192,7 +230,13 @@ assert "paso 3" in diagnostico
 print(diagnostico)
 ```
 
-Ejecutado, confirma que el DAG de dependencias es acíclico y produce `Causa raíz en el paso 3 (sin ancestros fallidos en el DAG); los pasos [10] son consecuencia, no causa` — el paso 3 falla sin que ninguno de sus ancestros haya fallado (es la causa raíz), mientras que el paso 10 falla *porque* depende causalmente del 3, no por una razón propia independiente. Sin el DAG, una heurística ingenua (como la del Capítulo 5 de la Unidad 0, que solo devuelve la primera falla en orden temporal) habría llegado a la misma conclusión por coincidencia en este ejemplo, pero fallaría en un caso donde el primer fallo temporal fuera en realidad independiente de una falla posterior no relacionada — exactamente el tipo de confusión entre orden temporal y causalidad que el DAG está diseñado para resolver.
+```mermaid
+graph TD
+    P1["Paso 1 — éxito"] --> P3["Paso 3 — FALLA (causa raíz)"]
+    P3 --> P10["Paso 10 — FALLA (consecuencia)"]
+```
+
+El DAG completo tiene solo 2 aristas (`1→3`, `3→10`), pero es justo esa forma —una cadena lineal de dependencia, no una coincidencia de orden temporal— lo que permite distinguir causa de consecuencia: el paso 3 no tiene ningún ancestro fallido (su único ancestro, el paso 1, tuvo éxito), así que es la causa raíz; el paso 10 sí tiene un ancestro fallido (el 3), así que su fallo es explicable por herencia causal, no por una razón propia. Ejecutado, confirma que el DAG de dependencias es acíclico y produce `Causa raíz en el paso 3 (sin ancestros fallidos en el DAG); los pasos [10] son consecuencia, no causa` — el paso 3 falla sin que ninguno de sus ancestros haya fallado (es la causa raíz), mientras que el paso 10 falla *porque* depende causalmente del 3, no por una razón propia independiente. Sin el DAG, una heurística ingenua (como la del Capítulo 5 de la Unidad 0, que solo devuelve la primera falla en orden temporal) habría llegado a la misma conclusión por coincidencia en este ejemplo, pero fallaría en un caso donde el primer fallo temporal fuera en realidad independiente de una falla posterior no relacionada — exactamente el tipo de confusión entre orden temporal y causalidad que el DAG está diseñado para resolver.
 
 ### Despliegue
 
@@ -223,7 +267,18 @@ def crear_span_de_ejemplo() -> str:
 print(crear_span_de_ejemplo())
 ```
 
-Ejecutado, imprime `llamada_agente` — el span se crea, recibe un atributo estructurado (`agente.nombre`) que quedaría adjunto a él en cualquier backend de trazado (Jaeger, Honeycomb, el propio panel de LangSmith), y se cierra automáticamente al salir del bloque `with`. En un sistema real, cada agente y cada llamada a herramienta abrirían su propio span anidado dentro del span del turno completo, dando exactamente la traza multi-turno que la función `diagnosticar_causa_raiz` de la fase de Evaluación necesita como entrada. La otra pieza de observabilidad en producción es **LLM-as-a-Judge**: en vez de (o además de) métricas automáticas rígidas, se usa un LLM independiente para evaluar continuamente muestras de las respuestas del sistema contra un rubro explícito (¿la respuesta usó la herramienta correcta?, ¿el tono es apropiado?, ¿hay alucinación?) — es la técnica que permite detectar degradación de calidad en producción sin depender de que un humano revise cada interacción una por una.
+Ejecutado, imprime `llamada_agente` — el span se crea, recibe un atributo estructurado (`agente.nombre`) que quedaría adjunto a él en cualquier backend de trazado (Jaeger, Honeycomb, el propio panel de LangSmith), y se cierra automáticamente al salir del bloque `with`. En un sistema real, cada agente y cada llamada a herramienta abrirían su propio span anidado dentro del span del turno completo, dando exactamente la traza multi-turno que la función `diagnosticar_causa_raiz` de la fase de Evaluación necesita como entrada — el árbol completo de una traza así se ve, esquemáticamente, como:
+
+```mermaid
+graph TD
+    T["Span: turno_completo"] --> C["Span: llamada_coordinador"]
+    C --> E1["Span: llamada_ejecutor_codigo"]
+    C --> E2["Span: llamada_ejecutor_general"]
+    E1 --> H1["Span: invocar_herramienta_1"]
+    E1 --> H2["Span: invocar_herramienta_2"]
+```
+
+Cada nivel de anidamiento corresponde a un `with tracer.start_as_current_span(...)` abierto dentro de otro ya abierto — el span del coordinador contiene los spans de cada ejecutor que invoca, y cada ejecutor a su vez contiene los spans de las herramientas que llama. La función `diagnosticar_causa_raiz` de Evaluación opera exactamente sobre esta estructura, solo que en forma de DAG de dependencias en vez de árbol de spans: son dos representaciones del mismo problema (reconstruir qué pasó, en qué orden, y qué dependía de qué) vistas desde dos fases distintas del Ciclo del Agente. La otra pieza de observabilidad en producción es **LLM-as-a-Judge**: en vez de (o además de) métricas automáticas rígidas, se usa un LLM independiente para evaluar continuamente muestras de las respuestas del sistema contra un rubro explícito (¿la respuesta usó la herramienta correcta?, ¿el tono es apropiado?, ¿hay alucinación?) — es la técnica que permite detectar degradación de calidad en producción sin depender de que un humano revise cada interacción una por una.
 
 ### Iteración
 
@@ -302,6 +357,23 @@ notebooks en un contexto donde la compatibilidad es crítica, valida
 primero con una llamada real a `ChatGoogleGenerativeAI` en un entorno
 desechable.
 
+### Checklist de Gold Standard por notebook (GOVERNANCE.md §3bis)
+
+`GOVERNANCE.md` §3bis exige, antes de revisar `practica_u3/` sección por sección, un checklist de 1 fila por notebook contra 3 criterios verificables: contexto de dominio (¿explica qué problema resuelve el framework y por qué no bastaría algo más simple?), comparación de alternativas (¿referencia el panorama teórico de esta unidad, en vez de repetirlo?) y sincronía código-narrativa (¿la prosa describe con precisión lo que el código actual hace?). Este es ese checklist, construido revisando las celdas de introducción reales de los 8 notebooks:
+
+| Notebook | Contexto de dominio | Comparación de alternativas | Sincronía código-narrativa |
+|---|---|---|---|
+| `U3_01` | ⚠️ Parcial — explica *qué* es un agente, no *por qué* este notebook usa ReAct/AgentExecutor y no otra técnica | ❌ No referencia el panorama teórico de esta unidad | ✅ Corregido (fix de sincronía, ver más abajo) |
+| `U3_02` | ✅ Sección explícita "¿Por qué LangGraph? Límites del AgentExecutor" | ❌ No referencia el panorama teórico de esta unidad | ✅ Sin hallazgos en la revisión de sincronía |
+| `U3_03` | ✅ Sección explícita "¿Por qué CrewAI? El modelo de tripulación" | ❌ No referencia el panorama teórico de esta unidad | ✅ Corregido (fix de sincronía) |
+| `U3_04` | ⚠️ Parcial — tiene una comparativa técnica (OpenRouter vs. Gemini nativo) pero no un "por qué ADK" explícito al inicio | ❌ No referencia el panorama teórico de esta unidad | ✅ Sin hallazgos en la revisión de sincronía |
+| `U3_05` | ✅ Objetivos de aprendizaje explícitos, con alcance delimitado frente a `U3_06` | ❌ No referencia el panorama teórico de esta unidad | ✅ Sin hallazgos en la revisión de sincronía |
+| `U3_06` | ✅ Sección explícita "¿Por Qué Grafos? Limitaciones de los Vector Stores", con tabla de cuándo usar cada tecnología | ❌ No referencia el panorama teórico de esta unidad | ✅ Corregido (fix de sincronía) |
+| `U3_07` | ✅ Objetivos de aprendizaje explícitos, con prerrequisitos declarados | ❌ No referencia el panorama teórico de esta unidad | ✅ Corregido (fix de sincronía) |
+| `U3_08` | ✅ Sección explícita "¿Por qué construir un sistema multi-agente integrador?" | ❌ No referencia el panorama teórico de esta unidad | ✅ Corregido (2 rondas de fix de sincronía, incluyendo MCP prometido y nunca implementado) |
+
+**Lectura del checklist:** el criterio que **ningún** notebook cumple hoy es la comparación de alternativas contra el panorama de esta misma unidad (Selección de Arquitectura, líneas 11-32) — cada notebook justifica su propio framework de forma aislada, pero ninguno dice explícitamente "de los frameworks/protocolos que la parte teórica de U3 compara, este notebook usa X porque Y". Cerrar ese hueco es trabajo pendiente, fuera del alcance de esta ronda de correcciones (que se enfocó en sincronía código-narrativa, ya cerrada en los 5 notebooks marcados arriba). El criterio de contexto de dominio se cumple en 6 de 8; `U3_01` y `U3_04` son los candidatos más claros para una mejora futura.
+
 ### Diccionario de Variables
 
 | Símbolo | Nombre | Descripción |
@@ -309,7 +381,9 @@ desechable.
 | `necesita_checkpointing`, `complejidad_del_flujo` | Parámetros de la heurística de selección | Entradas de `elegir_framework`, determinan si se recomienda LangGraph o CrewAI (Selección de Arquitectura) |
 | `clasificador_coordinador` | Predictor de DSPy | Instancia de `dspy.Predict` sobre `ClasificarConsultaParaCoordinador` (Implementación) |
 | `ejemplos_etiquetados` | Ejemplos de entrenamiento de DSPy | Lista de `dspy.Example` con `consulta`/`categoria`, marcados con `with_inputs` (Implementación) |
-| `grafo_coordinador`, `app_coordinador` | Grafo de LangGraph y su versión compilada | `StateGraph` con nodos `clasificar`/`enrutar`, compilado con `.compile()` (Implementación) |
+| `grafo_coordinador`, `app_coordinador` | Grafo de LangGraph y su versión compilada | `StateGraph` con nodos `clasificar`/`ejecutor_codigo`/`ejecutor_general` conectados por una arista condicional, compilado con `.compile()` (Implementación) |
+| `decidir_ejecutor` | Función de enrutamiento condicional | Lee el estado clasificado y retorna a qué nodo ejecutor continuar — la pieza que hace real la arista condicional de `add_conditional_edges` (Implementación) |
+| `resultado_codigo`, `resultado_general` | Resultados de dos invocaciones distintas del grafo | Confirman que dos consultas de categoría distinta recorren nodos ejecutores distintos (Implementación) |
 | `dag_de_dependencias` | DAG causal de dependencias entre pasos | Grafo dirigido acíclico que declara qué paso depende causalmente de cuál otro, análogo al DAG de la Unidad 0 (Evaluación) |
 | `traza`, `pasos_fallidos` | Traza multi-turno y sus fallos | Lista de dicts `{paso, exito}` y los pasos con `exito=False`, entrada de `diagnosticar_causa_raiz` (Evaluación) |
 | `diagnostico` | Resultado del diagnóstico causal | Descripción textual de cuál paso es causa raíz, retornada por `diagnosticar_causa_raiz` (Evaluación) |
@@ -317,7 +391,7 @@ desechable.
 | `gate` | Instancia de `SafetyGateAgent` | Agente real de guardrails, invocado con `.check_output()` (Seguridad de Agentes) |
 | `resultado`, `resultado_memoria` | Veredictos de `SafetyGateAgent` | Dicts con `passed`/`hallazgos`; el primero detecta prompt injection, el segundo no detecta memory poisoning (Seguridad de Agentes) |
 
-**Verificación manual del Diccionario de Variables** (el mecanismo automático de `ContentAuditorAgent._audit_diccionario_variables` es un placeholder que siempre retorna `[]` — no certifica nada): cada símbolo de la tabla fue releído contra el bloque de código donde aparece antes de agregarlo. Los diez símbolos están efectivamente usados en código Python realmente ejecutado en esta unidad (no en una tabla de sintaxis genérica ni en un docstring aislado): `necesita_checkpointing`/`complejidad_del_flujo` son argumentos reales invocados dos veces con valores distintos; `clasificador_coordinador` y `ejemplos_etiquetados` se instancian e imprimen; `grafo_coordinador`/`app_coordinador` se construyen, compilan e invocan con `.invoke()`; `dag_de_dependencias`, `traza`, `pasos_fallidos` y `diagnostico` participan en `assert`s verificados; `span` se crea dentro de un `with` real; `gate`, `resultado` y `resultado_memoria` provienen de dos llamadas reales a `SafetyGateAgent().check_output()` con salidas impresas y distintas entre sí.
+**Verificación manual del Diccionario de Variables** (el mecanismo automático de `ContentAuditorAgent._audit_diccionario_variables` es un placeholder que siempre retorna `[]` — no certifica nada): cada símbolo de la tabla fue releído contra el bloque de código donde aparece antes de agregarlo. Los doce símbolos están efectivamente usados en código Python realmente ejecutado en esta unidad (no en una tabla de sintaxis genérica ni en un docstring aislado): `necesita_checkpointing`/`complejidad_del_flujo` son argumentos reales invocados dos veces con valores distintos; `clasificador_coordinador` y `ejemplos_etiquetados` se instancian e imprimen; `grafo_coordinador`/`app_coordinador` se construyen, compilan e invocan con `.invoke()` dos veces con consultas distintas; `decidir_ejecutor` se invoca internamente por `add_conditional_edges` en cada invocación del grafo; `resultado_codigo`/`resultado_general` se imprimen y difieren entre sí, confirmando el enrutamiento condicional; `dag_de_dependencias`, `traza`, `pasos_fallidos` y `diagnostico` participan en `assert`s verificados; `span` se crea dentro de un `with` real; `gate`, `resultado` y `resultado_memoria` provienen de dos llamadas reales a `SafetyGateAgent().check_output()` con salidas impresas y distintas entre sí.
 
 ### Autoevaluación
 
@@ -325,8 +399,10 @@ desechable.
 %%writefile test_unidad_3.py
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 import networkx as nx
+from langgraph.graph import END, StateGraph
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 
@@ -341,6 +417,40 @@ def elegir_framework(necesita_checkpointing: bool, complejidad_del_flujo: str) -
     if necesita_checkpointing or complejidad_del_flujo == "compleja":
         return "LangGraph"
     return "CrewAI"
+
+
+class EstadoDelCoordinador(TypedDict):
+    consulta: str
+    categoria: str
+
+
+def _construir_grafo_coordinador():
+    def clasificar_nodo(estado):
+        contiene_python = "python" in estado["consulta"].lower()
+        return {"categoria": "codigo" if contiene_python else "general"}
+
+    def ejecutor_codigo_nodo(estado):
+        return {"categoria": f"{estado['categoria']}_asignado_a_ejecutor_codigo"}
+
+    def ejecutor_general_nodo(estado):
+        return {"categoria": f"{estado['categoria']}_asignado_a_ejecutor_general"}
+
+    def decidir_ejecutor(estado):
+        return "ejecutor_codigo" if estado["categoria"] == "codigo" else "ejecutor_general"
+
+    grafo = StateGraph(EstadoDelCoordinador)
+    grafo.add_node("clasificar", clasificar_nodo)
+    grafo.add_node("ejecutor_codigo", ejecutor_codigo_nodo)
+    grafo.add_node("ejecutor_general", ejecutor_general_nodo)
+    grafo.set_entry_point("clasificar")
+    grafo.add_conditional_edges(
+        "clasificar",
+        decidir_ejecutor,
+        {"ejecutor_codigo": "ejecutor_codigo", "ejecutor_general": "ejecutor_general"},
+    )
+    grafo.add_edge("ejecutor_codigo", END)
+    grafo.add_edge("ejecutor_general", END)
+    return grafo.compile()
 
 
 def diagnosticar_causa_raiz(
@@ -371,6 +481,17 @@ def test_elegir_framework_prioriza_langgraph_si_hay_checkpointing():
 
 def test_elegir_framework_recomienda_crewai_para_flujo_simple_sin_checkpointing():
     assert elegir_framework(necesita_checkpointing=False, complejidad_del_flujo="simple") == "CrewAI"
+
+
+def test_grafo_coordinador_enruta_condicionalmente_segun_categoria():
+    app = _construir_grafo_coordinador()
+    resultado_codigo = app.invoke({"consulta": "escribe una función en Python", "categoria": ""})
+    resultado_general = app.invoke({"consulta": "cuál es el clima hoy", "categoria": ""})
+    # Dos invocaciones con distinta categoria deben pasar por nodos ejecutores distintos:
+    # si esto falla con el mismo resultado en ambos casos, la arista dejo de ser condicional.
+    assert resultado_codigo["categoria"] != resultado_general["categoria"]
+    assert "ejecutor_codigo" in resultado_codigo["categoria"]
+    assert "ejecutor_general" in resultado_general["categoria"]
 
 
 def test_diagnostico_causa_raiz_distingue_causa_de_correlacion():
@@ -405,6 +526,6 @@ def test_span_de_opentelemetry_se_crea_sin_error():
 !pytest test_unidad_3.py -v
 ```
 
-Ejecutado, las 6 pruebas pasan: la heurística de selección de framework recomienda LangGraph cuando hay checkpointing y CrewAI cuando el flujo es simple, el diagnóstico causal identifica el paso 3 (no el 10) como causa raíz sobre el DAG de dependencias, `SafetyGateAgent` detecta el prompt injection reflejado pero aprueba sin hallazgos la frase de memory poisoning simulada, y el span de OpenTelemetry se crea y nombra correctamente bajo un `TracerProvider` real.
+Ejecutado, las 7 pruebas pasan: la heurística de selección de framework recomienda LangGraph cuando hay checkpointing y CrewAI cuando el flujo es simple, el grafo coordinador enruta dos consultas distintas a dos nodos ejecutores distintos —confirmando que la arista es condicional de verdad, no una secuencia fija—, el diagnóstico causal identifica el paso 3 (no el 10) como causa raíz sobre el DAG de dependencias, `SafetyGateAgent` detecta el prompt injection reflejado pero aprueba sin hallazgos la frase de memory poisoning simulada, y el span de OpenTelemetry se crea y nombra correctamente bajo un `TracerProvider` real.
 
 ---
