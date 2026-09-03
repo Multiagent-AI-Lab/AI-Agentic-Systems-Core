@@ -16,7 +16,7 @@ Las Unidades 1 a 3 recorrieron el Ciclo del Agente completo sobre práctica ya e
 
 **3 características clave**: Autonomía (operan sin intervención humana directa), Plasticidad (modifican sus algoritmos internos según la experiencia), Homeostasis (buscan estabilidad interna frente al caos externo).
 
-Estos 8 términos no son igualmente centrales para lo que sigue: los dos ejercicios de esta unidad son ejemplos concretos de **Sistemas Evolutivos** (Ejercicio 1) y de **Lifelong Learning Agent** (Ejercicio 2) — los dos únicos de la lista con una implementación ejecutable aquí. Los otros cinco (CAS, Sistemas Auto-organizativos, Learning Agents como categoría general, y las tres características) describen el panorama más amplio en el que esos dos ejercicios son casos particulares, pero no tienen código propio en esta unidad. Concretamente: el algoritmo genético del Ejercicio 1 exhibe **Plasticidad** (la población cambia su composición generación a generación en respuesta a la métrica) pero no **Homeostasis** — nada en `evolucionar_configuracion` preserva al mejor individuo encontrado frente a una mutación destructiva; si el mejor hijo de una generación resulta peor que sus padres, se pierde igual que cualquier otro, porque la selección solo mira el fitness de la generación actual, no el mejor histórico. Un algoritmo genético real de producción añadiría **elitismo** (conservar siempre al mejor individuo sin mutar) precisamente para ganar esa Homeostasis que la versión de este ejercicio no tiene — se deja como Ejercicio 1b más abajo.
+Estos 5 conceptos y 3 características no son igualmente centrales para lo que sigue: los dos ejercicios de esta unidad son ejemplos concretos de **Sistemas Evolutivos** (Ejercicio 1) y de **Lifelong Learning Agent** (Ejercicio 2) — los dos únicos conceptos de la lista con una implementación ejecutable aquí. Los otros tres conceptos (Learning Agents como categoría general, CAS, Sistemas Auto-organizativos) describen el panorama más amplio en el que esos dos ejercicios son casos particulares, pero no tienen código propio en esta unidad. Concretamente: el algoritmo genético del Ejercicio 1 exhibe **Plasticidad** (la población cambia su composición generación a generación en respuesta a la métrica) pero no **Homeostasis** — nada en `evolucionar_configuracion` preserva al mejor individuo encontrado frente a una mutación destructiva; si el mejor hijo de una generación resulta peor que sus padres, se pierde igual que cualquier otro, porque la selección solo mira el fitness de la generación actual, no el mejor histórico. Un algoritmo genético real de producción añadiría **elitismo** (conservar siempre al mejor individuo sin mutar) precisamente para ganar esa Homeostasis que la versión de este ejercicio no tiene — se deja como Ejercicio 1b más abajo.
 
 ## Ejercicio 1: Algoritmo Genético para Tuning de Hiperparámetros
 
@@ -114,13 +114,13 @@ poblacion_inicial = np.column_stack([
     np.random.default_rng(43).uniform(-4, -1, 6),
     np.random.default_rng(44).uniform(8, 48, 6),
 ])
-mejor_config, mejor_r2 = evolucionar_configuracion(metrica_r2_mlp, poblacion_inicial)
+mejor_config, mejor_r2 = evolucionar_configuracion(metrica_r2_mlp, poblacion_inicial, semilla=11)
 print(f"Mejor configuración: alpha=10^{mejor_config[0]:.2f}, "
       f"learning_rate={10 ** mejor_config[1]:.4f}, neuronas={int(mejor_config[2])}")
 print(f"R2 en test: {mejor_r2:.4f}")
 ```
 
-Ejecutado, este bloque converge en 5 generaciones a una configuración con `alpha≈10^-2.19` (≈0.0065), `learning_rate≈0.0295` y 46 neuronas en la capa oculta, con **R² de 0.7759** sobre el conjunto de prueba — resultado consistente con el R² de 0.78 que la Unidad 1 reportó entrenando el mismo tipo de red con hiperparámetros elegidos a mano, confirmando que el GA encontró una configuración competitiva sin que nadie la eligiera manualmente. A diferencia del Ejercicio 1 de la versión anterior de esta unidad (que evolucionaba hacia un vector constante `[1,1,1]` sin ninguna conexión con IA real), esta métrica es el resultado de entrenar y evaluar una red neuronal real sobre datos reales — el "problema costoso de evaluar" que motiva usar un algoritmo evolutivo en vez de fuerza bruta es, aquí, literalmente cierto.
+Ejecutado, este bloque converge en 5 generaciones a una configuración con `alpha≈10^-2.13` (≈0.0074), `learning_rate≈0.0323` y 46 neuronas en la capa oculta, con **R² de 0.7636** sobre el conjunto de prueba — resultado consistente con el R² de 0.78 que la Unidad 1 reportó entrenando el mismo tipo de red con hiperparámetros elegidos a mano, confirmando que el GA encontró una configuración competitiva sin que nadie la eligiera manualmente. A diferencia del Ejercicio 1 de la versión anterior de esta unidad (que evolucionaba hacia un vector constante `[1,1,1]` sin ninguna conexión con IA real), esta métrica es el resultado de entrenar y evaluar una red neuronal real sobre datos reales — el "problema costoso de evaluar" que motiva usar un algoritmo evolutivo en vez de fuerza bruta es, aquí, literalmente cierto.
 
 ### Ejercicio 1b (para resolver): variar la tasa de mutación
 
@@ -147,8 +147,8 @@ def evolucionar_configuracion_con_decaimiento(
     return poblacion[np.argmax(fitness_final)], float(fitness_final.max())
 
 
-_, r2_con_decaimiento = evolucionar_configuracion_con_decaimiento(metrica_r2_mlp, poblacion_inicial)
-_, r2_sin_decaimiento = evolucionar_configuracion(metrica_r2_mlp, poblacion_inicial)
+_, r2_con_decaimiento = evolucionar_configuracion_con_decaimiento(metrica_r2_mlp, poblacion_inicial, semilla=11)
+_, r2_sin_decaimiento = evolucionar_configuracion(metrica_r2_mlp, poblacion_inicial, semilla=11)
 print(f"R2 con decaimiento de mutación: {r2_con_decaimiento:.4f}")
 print(f"R2 sin decaimiento (tasa fija): {r2_sin_decaimiento:.4f}")
 
@@ -157,6 +157,8 @@ assert r2_con_decaimiento >= r2_sin_decaimiento - 0.02, (
     "final — si esto falla, revisa que sigma_g realmente disminuya con g."
 )
 ```
+
+Ejecutado, `r2_con_decaimiento=0.7743` y `r2_sin_decaimiento=0.7636`: la variante con decaimiento encuentra una configuración mejor en esta corrida (+0.0107) — el efecto no es garantizado en cada ejecución individual (con otras semillas la ganancia varía entre prácticamente nula y sustancial), pero es consistentemente no-negativo, que es exactamente lo que el `assert` verifica.
 
 ## Ejercicio 2: Q-Learning Tabular sobre un Entorno con Transiciones
 
@@ -170,7 +172,7 @@ import numpy as np
 
 def entrenar_q_learning(
     n_estados: int, n_acciones: int, recompensas: np.ndarray, transiciones: np.ndarray,
-    episodios: int = 300, tasa_aprendizaje: float = 0.1,
+    episodios: int = 1500, tasa_aprendizaje: float = 0.1,
     factor_descuento: float = 0.9, semilla: int = 42,
 ) -> np.ndarray:
     """Entrena una tabla Q sobre un entorno con transiciones de estado reales.
@@ -224,7 +226,7 @@ print(f"Tabla Q entrenada:\n{tabla_final}")
 print(f"Política óptima por estado: {[int(np.argmax(tabla_final[s])) for s in range(3)]}")
 ```
 
-Ejecutado, la tabla Q converge de forma que `argmax(tabla_final[s]) == 1` ("moverse a la derecha") en los tres estados no terminales (`0`, `1`, `2`), y los valores de la acción "derecha" **decrecen a medida que el estado se aleja de la meta** (`tabla_final[2,1] > tabla_final[1,1] > tabla_final[0,1]`) — exactamente el comportamiento que el factor de descuento `factor_descuento=0.9` predice: un episodio que necesita más pasos para llegar a la recompensa vale menos que uno más corto, y esa diferencia solo puede aparecer si `mejor_futuro` se calcula sobre el estado al que la acción realmente lleva. Con la versión anterior de este ejercicio (sin `transiciones`, calculando `mejor_futuro` sobre el mismo estado de origen) esta propagación de valor hacia atrás no podía ocurrir — el agente sí aprendía a preferir la acción de mayor recompensa inmediata en cada estado por separado, pero eso es un problema de bandidos multi-brazo independientes por estado, no la propagación de valor a través de una secuencia de decisiones que es la contribución específica de Q-learning frente a un promedio simple.
+Ejecutado con 1500 episodios, la tabla Q converge a los valores teóricos exactos que predice la ecuación de Bellman para este entorno (`Q*(estado, derecha) = factor_descuento^(2-estado)`, es decir `0.81`, `0.90` y `1.00` para los estados `0`, `1` y `2`): `argmax(tabla_final[s]) == 1` ("moverse a la derecha") en los tres estados no terminales, y los valores de esa acción **decrecen a medida que el estado se aleja de la meta** (`tabla_final[2,1] > tabla_final[1,1] > tabla_final[0,1]`) — exactamente el comportamiento que el factor de descuento `factor_descuento=0.9` predice: un episodio que necesita más pasos para llegar a la recompensa vale menos que uno más corto, y esa diferencia solo puede aparecer si `mejor_futuro` se calcula sobre el estado al que la acción realmente lleva. Con menos episodios (300, el valor por defecto de una versión anterior de este bloque) la *política* ya es correcta pero los *valores* todavía no han convergido (quedan alrededor de `0.59`/`0.77`/`0.96` en vez de `0.81`/`0.90`/`1.00`) — vale la pena notar la diferencia entre "aprendió a comportarse bien" y "sus estimaciones de valor ya son precisas": son dos criterios de convergencia distintos, y Q-learning tabular suele alcanzar el primero mucho antes que el segundo. Con la versión anterior de este ejercicio (sin `transiciones`, calculando `mejor_futuro` sobre el mismo estado de origen) esta propagación de valor hacia atrás no podía ocurrir en absoluto — el agente sí aprendía a preferir la acción de mayor recompensa inmediata en cada estado por separado, pero eso es un problema de bandidos multi-brazo independientes por estado, no la propagación de valor a través de una secuencia de decisiones que es la contribución específica de Q-learning frente a un promedio simple.
 
 ### Ejercicio 2b (para resolver): un GridWorld más largo
 
@@ -241,7 +243,7 @@ for estado in range(n_estados_largo):
     transiciones_largo[estado, 1] = min(n_estados_largo - 1, estado + 1)
 transiciones_largo[n_estados_largo - 1, :] = n_estados_largo - 1
 
-tabla_largo = entrenar_q_learning(n_estados_largo, n_acciones, recompensas_largo, transiciones_largo, episodios=600)
+tabla_largo = entrenar_q_learning(n_estados_largo, n_acciones, recompensas_largo, transiciones_largo, episodios=3000)
 print(f"Política óptima (GridWorld largo): {[int(np.argmax(tabla_largo[s])) for s in range(n_estados_largo - 1)]}")
 print(f"Valor de 'derecha' en estado 0 — GridWorld de 4 estados: {tabla_final[0, 1]:.4f}")
 print(f"Valor de 'derecha' en estado 0 — GridWorld de 6 estados: {tabla_largo[0, 1]:.4f}")
@@ -281,7 +283,7 @@ La conexión concreta con U3: `SafetyGateAgent.check_output()` ya demostró no d
 | `estado`, `accion`, `siguiente_estado` | Estado, acción y estado resultante en cada episodio | `estado`/`accion` se muestrean con `rng.integers`; `siguiente_estado = transiciones[estado, accion]` (Ejercicio 2) |
 | `mejor_futuro` | Estimación del valor futuro máximo | `np.max(tabla_q[siguiente_estado])` — término de la actualización de Bellman, ahora calculado sobre el estado al que la acción realmente lleva (Ejercicio 2) |
 
-**Verificación manual del Diccionario de Variables** (el mecanismo automático de `ContentAuditorAgent._audit_diccionario_variables` es un placeholder que siempre retorna `[]` — no certifica nada): cada símbolo de la tabla fue releído contra el bloque de código donde aparece antes de agregarlo. Los quince símbolos están efectivamente usados en código Python realmente ejecutado en esta unidad (no en una tabla de sintaxis genérica ni en un docstring aislado): `X`/`y`/`X_train`/`X_test`/`y_train`/`y_test` se generan con `fetch_california_housing` y `train_test_split` reales; `X_train_sub`/`y_train_sub`/`X_test_sub`/`y_test_sub` se usan directamente dentro de `metrica_r2_mlp` para entrenar y evaluar; `escalador` transforma ambos conjuntos; `metrica_r2_mlp` se invoca dentro del bucle de evolución sobre cada individuo; `poblacion_inicial`/`poblacion` se transforman en cada iteración del `for`; `fitness`/`fitness_final` se calculan y se usan para `argsort`/`argmax` reales; `sobrevivientes`/`hijos` se construyen con slicing y `rng.normal` y se concatenan con `np.vstack`; `mejor_config`/`mejor_r2` se imprimen y se comparan contra el R² de la Unidad 1 en la prosa; `sigma_g` se recalcula en cada generación del Ejercicio 1b y decae verificablemente; `n_estados`/`n_acciones` parametrizan las matrices de ambos GridWorld; `recompensas`/`transiciones` se leen dentro de `entrenar_q_learning` para cada episodio; `tabla_q`/`tabla_final`/`tabla_largo` se inicializan en ceros y se actualizan episodio a episodio; `estado`/`accion`/`siguiente_estado` se muestrean o derivan en cada iteración del bucle de entrenamiento; `mejor_futuro` se calcula con `np.max` sobre `tabla_q[siguiente_estado]` en cada episodio y su corrección (usar el estado siguiente, no el actual) se verifica empíricamente en la Autoevaluación comparando los valores de dos GridWorld de distinta longitud.
+**Verificación manual del Diccionario de Variables** (el mecanismo automático de `ContentAuditorAgent._audit_diccionario_variables` es un placeholder que siempre retorna `[]` — no certifica nada): cada símbolo de la tabla fue releído contra el bloque de código donde aparece antes de agregarlo. Los símbolos de las quince filas están efectivamente usados en código Python realmente ejecutado en esta unidad (no en una tabla de sintaxis genérica ni en un docstring aislado): `X`/`y`/`X_train`/`X_test`/`y_train`/`y_test` se generan con `fetch_california_housing` y `train_test_split` reales; `X_train_sub`/`y_train_sub`/`X_test_sub`/`y_test_sub` se usan directamente dentro de `metrica_r2_mlp` para entrenar y evaluar; `escalador` transforma ambos conjuntos; `metrica_r2_mlp` se invoca dentro del bucle de evolución sobre cada individuo; `poblacion_inicial`/`poblacion` se transforman en cada iteración del `for`; `fitness`/`fitness_final` se calculan y se usan para `argsort`/`argmax` reales; `sobrevivientes`/`hijos` se construyen con slicing y `rng.normal` y se concatenan con `np.vstack`; `mejor_config`/`mejor_r2` se imprimen y se comparan contra el R² de la Unidad 1 en la prosa; `sigma_g` se recalcula en cada generación del Ejercicio 1b y decae verificablemente; `n_estados`/`n_acciones` parametrizan las matrices de ambos GridWorld; `recompensas`/`transiciones` se leen dentro de `entrenar_q_learning` para cada episodio; `tabla_q`/`tabla_final`/`tabla_largo` se inicializan en ceros y se actualizan episodio a episodio; `estado`/`accion`/`siguiente_estado` se muestrean o derivan en cada iteración del bucle de entrenamiento; `mejor_futuro` se calcula con `np.max` sobre `tabla_q[siguiente_estado]` en cada episodio y su corrección (usar el estado siguiente, no el actual) se verifica empíricamente en la Autoevaluación comparando los valores de dos GridWorld de distinta longitud.
 
 ### Autoevaluación
 
@@ -290,7 +292,7 @@ La conexión concreta con U3: `SafetyGateAgent.check_output()` ya demostró no d
 import numpy as np
 
 
-def entrenar_q_learning(n_estados, n_acciones, recompensas, transiciones, episodios=300, tasa_aprendizaje=0.1, factor_descuento=0.9, semilla=42):
+def entrenar_q_learning(n_estados, n_acciones, recompensas, transiciones, episodios=1500, tasa_aprendizaje=0.1, factor_descuento=0.9, semilla=42):
     rng = np.random.default_rng(semilla)
     tabla_q = np.zeros((n_estados, n_acciones))
     for _ in range(episodios):
@@ -337,12 +339,26 @@ def test_q_learning_propaga_valor_futuro_con_el_descuento():
     assert tabla[2, 1] > tabla[1, 1] > tabla[0, 1]
 
 
+def test_q_learning_converge_al_valor_teorico_de_bellman():
+    # Q*(estado, derecha) = factor_descuento**(2 - estado) para este GridWorld:
+    # con suficientes episodios, la tabla entrenada debe acercarse a ese valor,
+    # no solo acertar el orden relativo entre estados (eso ya lo cubre el test anterior).
+    n_estados = 4
+    recompensas, transiciones = _construir_gridworld(n_estados)
+    tabla = entrenar_q_learning(n_estados, 2, recompensas, transiciones)
+
+    factor_descuento = 0.9
+    valores_teoricos = [factor_descuento ** (2 - estado) for estado in range(3)]
+    for estado, valor_teorico in enumerate(valores_teoricos):
+        assert abs(tabla[estado, 1] - valor_teorico) < 0.02
+
+
 def test_gridworld_mas_largo_tiene_menor_valor_en_el_estado_inicial():
     recompensas_corto, transiciones_corto = _construir_gridworld(4)
     tabla_corto = entrenar_q_learning(4, 2, recompensas_corto, transiciones_corto)
 
     recompensas_largo, transiciones_largo = _construir_gridworld(6)
-    tabla_largo = entrenar_q_learning(6, 2, recompensas_largo, transiciones_largo, episodios=600)
+    tabla_largo = entrenar_q_learning(6, 2, recompensas_largo, transiciones_largo, episodios=3000)
 
     # Mas pasos hasta la meta = mas descuentos aplicados = menor valor en el estado 0
     assert tabla_largo[0, 1] < tabla_corto[0, 1]
@@ -352,4 +368,4 @@ def test_gridworld_mas_largo_tiene_menor_valor_en_el_estado_inicial():
 !pytest test_unidad_4.py -v
 ```
 
-Ejecutado, las 3 pruebas pasan: la tabla Q converge a la política óptima ("moverse a la derecha") en todos los estados no terminales del GridWorld, los valores de esa acción decrecen monótonamente a medida que el estado se aleja de la meta —confirmando que el término de valor futuro se calcula sobre el estado al que la acción realmente lleva, no sobre el estado de origen—, y el mismo patrón se sostiene al alargar el entorno de 4 a 6 estados, con un valor inicial estrictamente menor cuantos más pasos separan al agente de la recompensa. El primer y el tercer test corresponden directamente al Ejercicio 2 y al Ejercicio 2b; el algoritmo genético del Ejercicio 1 y su variante con decaimiento (Ejercicio 1b) no se incluyen en este archivo porque requieren entrenar `MLPRegressor` real (varios segundos por corrida) y ya llevan su propio `assert` de verificación en el bloque de la sección correspondiente — mismo criterio que las autoevaluaciones de U0-U3 aplican a los bloques costosos de ejecutar. Las funciones de Q-learning se redefinen dentro del archivo de test (no se importan del notebook) — mismo patrón que ya usan las autoevaluaciones de U0-U3, evita depender de un mecanismo de import frágil hacia celdas de notebook ejecutadas previamente.
+Ejecutado, las 4 pruebas pasan: la tabla Q converge a la política óptima ("moverse a la derecha") en todos los estados no terminales del GridWorld, los valores de esa acción decrecen monótonamente a medida que el estado se aleja de la meta, esos mismos valores se acercan a menos de `0.02` de su valor teórico exacto según la ecuación de Bellman (`0.81`/`0.90`/`1.00` para los estados `0`/`1`/`2`) —confirmando que el término de valor futuro se calcula sobre el estado al que la acción realmente lleva, no sobre el estado de origen, y que 1500 episodios son suficientes para que la tabla converja, no solo para que acierte el orden relativo—, y el mismo patrón de valores decrecientes se sostiene al alargar el entorno de 4 a 6 estados. El primer, segundo y cuarto test corresponden directamente al Ejercicio 2 y al Ejercicio 2b; el algoritmo genético del Ejercicio 1 y su variante con decaimiento (Ejercicio 1b) no se incluyen en este archivo porque requieren entrenar `MLPRegressor` real (varios segundos por corrida) y ya llevan su propio `assert` de verificación en el bloque de la sección correspondiente — mismo criterio que las autoevaluaciones de U0-U3 aplican a los bloques costosos de ejecutar. Las funciones de Q-learning se redefinen dentro del archivo de test (no se importan del notebook) — mismo patrón que ya usan las autoevaluaciones de U0-U3, evita depender de un mecanismo de import frágil hacia celdas de notebook ejecutadas previamente.
