@@ -94,7 +94,7 @@ print(f"Mejor número de neuronas encontrado: {int(mejor_n)}")
 print(f"R2 con esa configuración: {mejor_r2:.4f}")
 ```
 
-Ejecutado, este bloque evalúa 8 configuraciones en total (5 aleatorias + 3 guiadas por el GP) y encuentra `n≈127` neuronas con **R² de 0.7506** — resultado consistente con el R² de 0.78 que la Unidad 1 reportó con `hidden_layer_sizes=(32,16)` sobre el dataset completo, y ligeramente mejor que el mejor punto de un grid uniforme de 8 puntos evaluado sobre el mismo rango (`R²=0.7496`), que además cae fácilmente en una zona pobre del dominio: el número de neuronas y el R² **no tienen una relación suave y monótona** en este problema (un barrido de referencia sobre 10 valores fijos, de 2 a 128 neuronas, muestra R² pasando de `-0.08` en `n=2` a `0.68` en `n=24` y bajando de nuevo a `0.67` en `n=32`, antes de subir otra vez) — exactamente el tipo de superficie irregular donde el modelo sustituto del GP paga su costo de ajuste al guiar la búsqueda hacia zonas prometedoras en vez de confiar en que un grid uniforme las cubra por casualidad.
+Ejecutado, este bloque evalúa 8 configuraciones en total (5 aleatorias + 3 guiadas por el GP) y encuentra `n≈127` neuronas con **R² de 0.7506** — resultado consistente con el R² de 0.78 que la Unidad 1 reportó con `hidden_layer_sizes=(32,16)` sobre el dataset completo, y ligeramente mejor que el mejor punto de un grid uniforme de 8 puntos evaluado sobre el mismo rango (`R²=0.7496`), que además cae fácilmente en una zona pobre del dominio: el número de neuronas y el R² **no tienen una relación suave y monótona** en este problema (un barrido de referencia sobre 10 valores fijos: `2, 4, 8, 16, 24, 32, 48, 64, 96, 128` neuronas, muestra R² pasando de `-0.08` en `n=2` a `0.68` en `n=24` y bajando de nuevo a `0.67` en `n=32`, antes de subir otra vez) — exactamente el tipo de superficie irregular donde el modelo sustituto del GP paga su costo de ajuste al guiar la búsqueda hacia zonas prometedoras en vez de confiar en que un grid uniforme las cubra por casualidad.
 
 ---
 
@@ -218,8 +218,6 @@ Las dos secciones anteriores resolvieron dos problemas técnicos sin discutir cu
 
 La elección entre Optimización Bayesiana y grid search depende de dos factores concretos: el costo de evaluar la función objetivo, y la dimensionalidad del dominio de búsqueda.
 
-**Optimización Bayesiana vs. Grid Search**: la elección depende del costo de evaluar la función objetivo y de la dimensionalidad del dominio.
-
 - **Grid search** es preferible cuando evaluar la función es barato (microsegundos a milisegundos) y el dominio tiene pocas dimensiones — la exhaustividad de un grid es simple de implementar, paralelizar y depurar, y no introduce el overhead de ajustar un GP en cada iteración.
 - **Optimización bayesiana** es preferible cuando cada evaluación es costosa (segundos a horas: un entrenamiento de red neuronal, un experimento físico) y el presupuesto de evaluaciones es limitado — como en la sección anterior, donde 8 evaluaciones totales (5 aleatorias + 3 guiadas por el GP) encontraron una configuración mejor que el mejor punto de un grid uniforme del mismo tamaño, precisamente porque la relación entre número de neuronas y R² no es suave: un grid puede caer por completo en una zona pobre del dominio, mientras BO usa lo aprendido de cada evaluación para dirigir la siguiente búsqueda.
 
@@ -252,20 +250,24 @@ Si `IsolationForest` marca demasiados falsos positivos en producción (usuarios 
 
 ## Ejercicios
 
-### Ejercicio A (para resolver): más pasos de refinamiento bayesiano
+### Ejercicio A (para resolver): más puntos iniciales antes de ajustar el primer GP
 
-Modifica `optimizar_neuronas_bayesiano` para que use `n_pasos_bo=6` en vez de `3` (el doble de refinamiento guiado por el GP, con el mismo número de puntos iniciales) y verifica que el resultado final es al menos tan bueno como con menos pasos — más evaluaciones informadas por el modelo sustituto no deberían empeorar el resultado, aunque sí cuesten más tiempo de cómputo:
+Modifica la llamada a `optimizar_neuronas_bayesiano` para usar `n_iteraciones_iniciales=5` en vez de `2` (más puntos aleatorios antes de que el GP entre en juego, mismo número de pasos de refinamiento) y compara el resultado. A diferencia de aumentar `n_pasos_bo` (que refina sobre el mismo historial inicial y por eso puede no cambiar nada si el óptimo ya se alcanzó), aumentar los puntos iniciales cambia qué zonas del dominio ve el primer GP — con más cobertura inicial, es más probable que el GP ya tenga evidencia de las zonas prometedoras antes de empezar a refinar. Esto no está garantizado en cada corrida individual (más puntos iniciales consumen presupuesto de evaluaciones que podría haberse usado en refinamiento guiado, así que a veces el resultado empeora), pero para esta semilla específica sí mejora:
 
 ```python
-_, r2_con_mas_pasos = optimizar_neuronas_bayesiano(limites=(2, 128), n_pasos_bo=6, semilla=7)
-_, r2_con_menos_pasos = optimizar_neuronas_bayesiano(limites=(2, 128), n_pasos_bo=3, semilla=7)
-print(f"R2 con 6 pasos de refinamiento: {r2_con_mas_pasos:.4f}")
-print(f"R2 con 3 pasos de refinamiento: {r2_con_menos_pasos:.4f}")
+_, r2_pocos_iniciales = optimizar_neuronas_bayesiano(
+    limites=(2, 128), n_iteraciones_iniciales=2, n_pasos_bo=3, semilla=7
+)
+_, r2_mas_iniciales = optimizar_neuronas_bayesiano(
+    limites=(2, 128), n_iteraciones_iniciales=5, n_pasos_bo=3, semilla=7
+)
+print(f"R2 con 2 puntos iniciales: {r2_pocos_iniciales:.4f}")
+print(f"R2 con 5 puntos iniciales: {r2_mas_iniciales:.4f}")
 
-assert r2_con_mas_pasos >= r2_con_menos_pasos - 0.01, (
-    "Más pasos de refinamiento no deberían empeorar significativamente el "
-    "resultado — si esto falla, revisa que el historial de evaluaciones "
-    "(xs, ys) se esté acumulando correctamente entre pasos."
+assert r2_mas_iniciales > r2_pocos_iniciales, (
+    "Con esta semilla, más puntos iniciales debería encontrar una mejor "
+    "configuración — si esto falla, revisa que `n_iteraciones_iniciales` "
+    "se esté usando para muestrear `xs` antes del primer ajuste del GP."
 )
 ```
 
@@ -360,7 +362,7 @@ print(f"Hallazgos reales (ContentAuditorAgent.audit_unit): {hallazgos_reales_u1}
 print(f"¿Predicción correcta? {prediccion_u1 == hallazgos_reales_u1}")
 ```
 
-Ejecutado sobre `UNIDAD_1_ML_FUNDAMENTALS.md` (el archivo real de este mismo repositorio), imprime `Longitud: 23949 caracteres | Bloques Python: 8`, `Hallazgos predichos (heurística): 0`, `Hallazgos reales (ContentAuditorAgent.audit_unit): 0` y `¿Predicción correcta? True` — la heurística de umbral acierta porque Unidad 1 está por debajo de ambos umbrales (23,949 < 50,000 caracteres; 8 < 20 bloques) y, en efecto, no tiene hallazgos reales. Esto es una demostración de concepto con **una sola muestra**, no una validación estadística: la propia función lo advierte en su docstring. El paralelo con Optimización Bayesiana es directo — así como un GP con pocos puntos da estimaciones útiles pero con incertidumbre alta, una heurística calibrada sobre una sola unidad debe tratarse con la misma cautela hasta tener más unidades auditadas con las que ajustar los umbrales de verdad.
+Ejecutado sobre `UNIDAD_1_ML_FUNDAMENTALS.md` (el archivo real de este mismo repositorio), imprime `Longitud: 24585 caracteres | Bloques Python: 8`, `Hallazgos predichos (heurística): 0`, `Hallazgos reales (ContentAuditorAgent.audit_unit): 0` y `¿Predicción correcta? True` — la heurística de umbral acierta porque Unidad 1 está por debajo de ambos umbrales (24,585 < 50,000 caracteres; 8 < 20 bloques) y, en efecto, no tiene hallazgos reales. Esto es una demostración de concepto con **una sola muestra**, no una validación estadística: la propia función lo advierte en su docstring. El paralelo con Optimización Bayesiana es directo — así como un GP con pocos puntos da estimaciones útiles pero con incertidumbre alta, una heurística calibrada sobre una sola unidad debe tratarse con la misma cautela hasta tener más unidades auditadas con las que ajustar los umbrales de verdad.
 
 ### Diccionario de Variables
 
@@ -368,7 +370,7 @@ Ejecutado sobre `UNIDAD_1_ML_FUNDAMENTALS.md` (el archivo real de este mismo rep
 |---|---|---|
 | `semilla` | Semilla aleatoria | Argumento `random_state`/`semilla` fijado en `optimizar_neuronas_bayesiano`, `GaussianProcessRegressor` e `IsolationForest`, para reproducibilidad en ambas secciones de IA Aplicada |
 | `rng` | Generador de números aleatorios | Instancia de `np.random.default_rng(semilla)` usada para muestrear puntos iniciales en `optimizar_neuronas_bayesiano` (Optimización Bayesiana) |
-| `X`, `y`, `X_train`, `X_test`, `y_train`, `y_test`, `X_train_sub`, `y_train_sub`, `X_test_sub`, `y_test_sub` | Dataset California Housing y su partición | Mismo dataset que la Unidad 1 (`fetch_california_housing`); subconjuntos usados para que cada entrenamiento del GA sea rápido (Optimización Bayesiana) |
+| `X`, `y`, `X_train`, `X_test`, `y_train`, `y_test`, `X_train_sub`, `y_train_sub`, `X_test_sub`, `y_test_sub` | Dataset California Housing y su partición | Mismo dataset que la Unidad 1 (`fetch_california_housing`); subconjuntos usados para que cada entrenamiento del MLP dentro del GP sea rápido (Optimización Bayesiana) |
 | `escalador` | `StandardScaler` ajustado | Normaliza las 8 features de California Housing antes de entrenar cada MLP candidato (Optimización Bayesiana) |
 | `xs`, `ys` | Puntos evaluados y sus valores | Número de neuronas probadas y el R² obtenido en cada una, acumulados a lo largo de las iteraciones de BO (Optimización Bayesiana) |
 | `kernel` | Kernel del Proceso Gaussiano | `Matern(nu=2.5)`, asume suavidad finita de la función objetivo (Optimización Bayesiana) |
@@ -382,7 +384,7 @@ Ejecutado sobre `UNIDAD_1_ML_FUNDAMENTALS.md` (el archivo real de este mismo rep
 | `etiquetas` | Etiquetas de anomalía | Salida de `modelo.fit_predict(X)`: `1` para normal, `-1` para anómalo (Detección de Anomalías) |
 | `n_normales`, `n_anomalias` | Conteos de clasificación | Cantidad de muestras etiquetadas como normales/anómalas por `IsolationForest` sobre Wine (Detección de Anomalías) |
 | `extraer_features_output` | Extractor de features de forma de un texto | Recibe un string y retorna `[longitud, n_palabras, ratio_mayusculas, n_especiales]` (Guardrail estadístico) |
-| `outputs_normales`, `X_train_outputs` | Corpus de referencia y sus features | 8 oraciones de ejemplo repetidas 5 veces, y su matriz de features extraída (Guardrail estadístico) |
+| `outputs_normales`, `X_train_outputs` | Corpus de referencia y sus features | 20 oraciones de ejemplo distintas (no repetidas), y su matriz de features extraída (Guardrail estadístico) |
 | `guardrail_estadistico` | `IsolationForest` entrenado sobre forma de texto | Complementario a `SafetyGateAgent` de la Unidad 3 — detecta anomalías de estructura, no de contenido (Guardrail estadístico) |
 | `output_anomalo_estructural`, `output_normal_nuevo` | Textos de prueba del guardrail estadístico | Un output repetitivo y saturado de símbolos, y una oración normal nunca vista en el entrenamiento (Guardrail estadístico) |
 | `longitud_u1`, `n_bloques_u1` | Features del cierre auto-referencial | Longitud en caracteres y número de bloques Python de `UNIDAD_1_ML_FUNDAMENTALS.md`, extraídos por `extraer_features_unidad` (Cierre Auto-Referencial) |
