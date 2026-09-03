@@ -65,6 +65,7 @@ practica-u3 = [
     "fastapi==0.115.11",
     "uvicorn==0.34.0",
     "httpx==0.28.1",
+    "mcp==1.28.1",
     "pydantic==2.11.1",
     "python-dotenv==1.1.0",
     "tenacity==8.5.0",
