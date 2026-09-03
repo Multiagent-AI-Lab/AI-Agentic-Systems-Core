@@ -20,7 +20,8 @@ docs/superpowers/*.lock
 # Worktrees locales para trabajo aislado (sandboxes de desarrollo)
 .worktrees/
 
-# Cache local de mermaid-cli al renderizar diagramas — no lo referencia
-# ningún notebook (el fence ```mermaid ya embebido en la celda markdown es
-# lo que se versiona y lo que Jupyter/GitHub renderizan)
+# Cache local de SVGs generados por ContentAuditorAgent al renderizar
+# diagramas Mermaid — no lo referencia ningún notebook (el fence ```mermaid
+# ya embebido en la celda markdown es lo que se versiona y lo que
+# Jupyter/GitHub renderizan)
 notebooks/assets/
